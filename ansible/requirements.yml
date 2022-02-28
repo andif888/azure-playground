@@ -1,0 +1,16 @@
+---
+roles:
+- src: https://github.com/andif888/ansible-role-win-language
+- src: https://github.com/andif888/ansible-role-win-domain
+- src: https://github.com/andif888/ansible-role-win-domain-member
+- src: https://github.com/andif888/ansible-role-win-domain-ou
+- src: https://github.com/andif888/ansible-role-win-rdsh
+- src: https://github.com/andif888/ansible-role-win-fslogix
+- src: https://github.com/andif888/ansible-role-win-office365
+- src: https://github.com/andif888/ansible-role-win-teams
+- src: https://github.com/andif888/ansible-role-win-onedrive
+- src: https://github.com/geerlingguy/ansible-role-docker
+
+collections:
+- name: azure.azcollection
+- name: community.general

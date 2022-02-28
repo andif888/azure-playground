@@ -1,0 +1,1 @@
+../_shared/shared_destroy.sh

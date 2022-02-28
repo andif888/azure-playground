@@ -1,0 +1,17 @@
+<FirstLogonCommands>
+    <SynchronousCommand>
+        <CommandLine>cmd /c "copy C:\AzureData\CustomData.bin C:\windows\temp\firstrun.bat"</CommandLine>
+        <Description>Move the CustomData file to the working directory</Description>
+        <Order>12</Order>
+    </SynchronousCommand>
+    <SynchronousCommand>
+        <CommandLine>C:\windows\temp\firstrun.bat</CommandLine>
+        <Description>Execute the WinRM enabling script</Description>
+        <Order>13</Order>
+    </SynchronousCommand>
+    <SynchronousCommand>
+        <CommandLine>powershell.exe -ExecutionPolicy Unrestricted -NoLogo -NoProfile -NonInteractive -Command "netsh advfirewall firewall add rule name=\"Enable IPv4 ICMP\" dir=in protocol=icmpv4 action=allow"</CommandLine>
+        <Description>Enable Ping</Description>
+        <Order>14</Order>
+    </SynchronousCommand>
+</FirstLogonCommands>

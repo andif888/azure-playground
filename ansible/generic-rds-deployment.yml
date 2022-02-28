@@ -1,0 +1,222 @@
+---
+# https://citrixguyblog.com/2017/12/05/powershell-create-a-fully-automated-rds-farm-2016-with-ha-and-gateway-in-25-minutes/
+- hosts: windows_rdcb
+  become: true
+
+  vars_files:
+    - vars/generic.yml
+
+  vars:
+    # runas
+    ansible_become_method: runas
+    ansible_become_user: '{{ domain_admin_user }}'
+    ansible_become_password: '{{ domain_admin_password }}'
+
+  tasks:
+    - name: generic-rds-deployment - New-RDSessionDeployment
+      win_shell: |
+        Import-Module RemoteDesktop
+        try {
+          New-RDSessionDeployment `
+            -ConnectionBroker "{{ rds_connection_broker_fqdn }}" `
+            -WebAccessServer "{{ rds_web_access_server_fqdn }}" `
+            -SessionHost @({{ rds_session_hosts_fqdn | map('to_json') | join(', ') }})
+          Write-Host "successfully installed"
+        }
+        catch {
+          Write-Host $_.Exception.Message
+        }
+      register: new_rdsessiondeployment
+      changed_when: False
+
+    - debug:
+        var: new_rdsessiondeployment.stdout
+
+    - name: generic-rds-deployment - Get-RDServer RDS-LICENSING
+      win_shell: |
+        Import-Module RemoteDesktop
+        $exists = $false
+
+        $rdserver = Get-RDServer -Role "RDS-LICENSING" `
+        -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+        if ($rdserver) {
+          if ($rdserver.Server -eq "{{ rds_licensing_server_name }}") {
+            $exists = $true
+          }
+          else {
+            Remove-RDServer -Server $rdserver.Server -Role "RDS-LICENSING" `
+              -ConnectionBroker "{{ rds_connection_broker_fqdn }}" `
+              -Force
+          }
+        }
+        Write-Host $exists
+      register: rd_licensing_exists
+      changed_when: False
+
+    - name: generic-rds-deployment - Add-RDServer RDS-LICENSING
+      win_shell: |
+        Import-Module RemoteDesktop
+        Add-RDServer -Server "{{ rds_licensing_server_name }}" `
+          -Role "RDS-LICENSING" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+      when:
+        - rd_licensing_exists.stdout is match("False*")
+
+
+    - name: generic-rds-deployment - Get-RDServer RDS-GATEWAY
+      win_shell: |
+        Import-Module RemoteDesktop
+        $exists = $false
+
+        $rdserver = Get-RDServer -Role "RDS-GATEWAY" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+        if ($rdserver) {
+          if ($rdserver.Server -eq "{{ rds_gateway_server_fqdn }}") {
+            $exists = $true
+          }
+          else {
+            Remove-RDServer -Server $rdserver.Server -Role "RDS-GATEWAY" `
+              -ConnectionBroker "{{ rds_connection_broker_fqdn }}" -Force
+          }
+        }
+        Write-Host $exists
+      register: rd_gateway_exists
+      changed_when: False
+
+
+    - name: generic-rds-deployment - Add-RDServer RDS-GATEWAY
+      win_shell: |
+        Import-Module RemoteDesktop
+        Add-RDServer -Server "{{ rds_gateway_server_fqdn }}" `
+          -Role "RDS-GATEWAY" `
+          -GatewayExternalFqdn "{{ rds_gateway_server_fqdn }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+      when:
+        - rd_gateway_exists.stdout is match("False*")
+
+
+    - name: generic-rds-deployment - Get-RDServer RDS-WEB-ACCESS
+      win_shell: |
+        Import-Module RemoteDesktop
+        $exists = $false
+
+        $rdserver = Get-RDServer -Role "RDS-WEB-ACCESS" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+        if ($rdserver) {
+          if ($rdserver.Server -eq "{{ rds_web_access_server_fqdn }}") {
+            $exists = $true
+          }
+          else {
+            Remove-RDServer -Server $rdserver.Server `
+              -Role "RDS-WEB-ACCESS" `
+              -ConnectionBroker "{{ rds_connection_broker_fqdn }}" `
+              -Force
+          }
+        }
+        Write-Host $exists
+      register: rd_web_access_exists
+      changed_when: False
+
+
+    - name: generic-rds-deployment - Add-RDServer RDS-WEB-ACCESS
+      win_shell: |
+        Import-Module RemoteDesktop
+        Add-RDServer -Server "{{ rds_web_access_server_fqdn }}" `
+          -Role "RDS-WEB-ACCESS" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+      when:
+        - rd_web_access_exists.stdout is match("False*")
+
+
+
+    - name: generic-rds-deployment - Get-RDSessionCollection
+      win_shell: |
+        Import-Module RemoteDesktop
+        $collection_exists = $false
+        $collection = Get-RDSessionCollection `
+          -CollectionName "{{ rds_session_collection_name }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+        if ($collection) {
+          $collection_exists = $true
+        }
+        Write-Host $collection_exists
+      register: rdsessioncollection_exists
+      changed_when: False
+
+    - name: generic-rds-deployment - New-RDSessionCollection
+      win_shell: |
+        Import-Module RemoteDesktop
+        New-RDSessionCollection -CollectionName "{{ rds_session_collection_name }}" `
+          -SessionHost @({{ rds_session_hosts_fqdn | map('to_json') | join(', ') }}) `
+          -CollectionDescription "{{ rds_session_collection_description }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+      when:
+        - rdsessioncollection_exists.stdout is match("False*")
+
+    - name: generic-rds-deployment - Set-RDLicenseConfiguration
+      win_shell: |
+        Import-Module RemoteDesktop
+        Set-RDLicenseConfiguration -LicenseServer @("{{ rds_licensing_server_name }}") `
+          -Mode "{{ rds_licensing_mode_name }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}" `
+          -Force
+
+    - name: generic-rds-deployment - Set-RDSessionCollectionConfiguration
+      win_shell: |
+        Import-Module RemoteDesktop
+        Set-RDSessionCollectionConfiguration -CollectionName "{{ rds_session_collection_name }}" `
+          -ClientDeviceRedirectionOptions "{{ rds_session_collection_client_device_redirection_options }}" `
+          -ClientPrinterRedirected {{ rds_session_collection_clientprinter_redirected }} `
+          -RDEasyPrintDriverEnabled {{ rds_session_collection_easyprint_driver_enabled }} `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+    - name: generic-rds-deployment - Set-RDDeploymentGatewayConfiguration
+      win_shell: |
+        Import-Module RemoteDesktop
+        Set-RDDeploymentGatewayConfiguration `
+          -GatewayMode Custom `
+          -GatewayExternalFqdn "{{ rds_gateway_server_external_fqdn }}" `
+          -LogonMethod Password -UseCachedCredentials $True `
+          -BypassLocal $True `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+    # - name: generic-rds-deployment - DeploymentRedirectorServer
+    #   win_shell: |
+    #     Import-Module RemoteDesktop
+    #     $ClientAccessName = "{{ rds_connection_broker_fqdn }}"
+    #     iwmi -Class "Win32_RDMSDeploymentSettings" `
+    #       -Namespace "root\CIMV2\rdms" `
+    #       -Name "SetStringProperty" `
+    #       -ArgumentList @("DeploymentRedirectorServer",$ClientAccessName) `
+    #       -ComputerName "{{ rds_connection_broker_fqdn }}" `
+    #       -Authentication PacketPrivacy `
+    #       -ErrorAction Stop
+
+    # fail save
+    - name: generic-rds-deployment - Add-RDServer RDS-RD-SERVER
+      win_shell: |
+        Import-Module RemoteDesktop
+        Add-RDServer -Server "{{ item }}" `
+          -Role "RDS-RD-SERVER" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+      with_items: '{{ rds_session_hosts_fqdn }}'
+
+
+    - name: generic-rds-deployment - Add-RDSessionHost
+      win_shell: |
+        Import-Module RemoteDesktop
+        $collection = Get-RDSessionCollection `
+          -CollectionName "{{ rds_session_collection_name }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+        if ($collection) {
+
+          Add-RDSessionHost -CollectionName "$($collection.CollectionName)" `
+          -SessionHost "{{ item }}" `
+          -ConnectionBroker "{{ rds_connection_broker_fqdn }}"
+
+        }
+      with_items: '{{ rds_session_hosts_fqdn }}'
+      tags: generic_rds_deployment_add_rdsessionhost

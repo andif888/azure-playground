@@ -1,0 +1,5 @@
+---
+- name: linux generate rdp file {{ rdp_file_full_address }}
+  template:
+    src: templates/windows_remotedesktop.rdp.j2
+    dest: '{{ rdp_file_dest }}'

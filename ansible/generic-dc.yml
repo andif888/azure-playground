@@ -1,0 +1,67 @@
+---
+- hosts: dc
+
+  vars_files:
+    - vars/generic.yml
+
+  roles:
+    - { role: ansible-role-win-domain }
+    - { role: ansible-role-win-domain-ou }
+
+  tasks:
+    - name: DC - DNS Service ListenAddresses
+      win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Services\DNS\Parameters
+        name: ListenAddresses
+        data: '[''{{ ansible_ip_addresses | ansible.netcommon.ipv4 | first }}'']'
+        type: multistring
+      notify: restart DNS
+
+    - name: Check DNS Forwarders
+      win_shell: |
+        $forwarders = Get-DnsServerForwarder
+        if (($forwarders).IPAddress.Length -gt 0)
+        {
+          if (($forwarders).IPAddress[0].IPAddressToString -ne "8.8.8.8")
+          {
+            Write-Host "false"
+          }
+          else
+          {
+            Write-Host "true"
+          }
+        }
+        else
+        {
+          Write-Host "true"
+        }
+      register: dnsforwarder_ok
+      changed_when: false
+
+    - name: Remove DNS Forwarders
+      win_shell: |
+        Remove-DnsServerForwarder -IPAddress (Get-DnsServerForwarder).IPAddress -Passthru -Confirm:$false -Force
+      when: dnsforwarder_ok.stdout is not match("true")
+
+    - name: Add DNS Forwarders 8.8.8.8
+      win_shell: |
+        Add-DnsServerForwarder -IPAddress 8.8.8.8 -PassThru -Confirm:$false
+      when: dnsforwarder_ok.stdout is not match("true")
+
+    - name: Add DNS Forwarders 8.8.4.4
+      win_shell: |
+        Add-DnsServerForwarder -IPAddress 8.8.4.4 -PassThru -Confirm:$false
+      when: dnsforwarder_ok.stdout is not match("true")
+
+
+    - name: restart DNS
+      win_service:
+        name: DNS
+        state: restarted
+      when: dnsforwarder_ok.stdout is not match("true")
+
+  handlers:
+    - name: restart DNS
+      win_service:
+        name: DNS
+        state: restarted

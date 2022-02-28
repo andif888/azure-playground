@@ -1,0 +1,154 @@
+---
+- name: window-certdumper - Update facts of linux_dh
+  setup:
+  delegate_to: '{{ item }}'
+  delegate_facts: yes
+  with_items: '{{ groups["linux_dh"] }}'
+  when:
+    - groups["linux_dh"] is defined
+    - hostvars[item]['ansible_hostname'] is not defined
+
+- name: window-certdumper - install Chocolatey            # https://github.com/ansible/ansible/issues/53860
+  win_chocolatey:
+    name: chocolatey
+    state: present
+  tags: openssl_light
+
+- name: window-certdumper - disable enhanced exit codes   # https://github.com/ansible/ansible/issues/53860
+  win_chocolatey_feature:
+    name: useEnhancedExitCodes
+    state: disabled
+  tags: openssl_light
+
+- name: window-certdumper - Install packages with chocolatey
+  win_chocolatey:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - openssl.light
+  tags: openssl_light
+
+- name: create random but idempotent password
+  set_fact:
+    certdumper_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=24', seed=inventory_hostname) }}"
+
+
+- name: window-certdumper - Create Scheduled Task Folder
+  win_file:
+    path: 'C:\ScheduledTasks\windows_certs_dumper'
+    state: directory
+  become: yes
+
+- name: window-certdumper - windows_certs_dumper batch file
+  win_template:
+    src: "templates/windows_certs_dumper/{{ inventory_hostname }}_dump_to_pfx.bat.j2"
+    dest: 'C:\ScheduledTasks\windows_certs_dumper\dump_to_pfx.bat'
+  become: yes
+
+- name: window-certdumper - windows_certs_dumper set certificate ps1
+  win_template:
+    src: "templates/windows_certs_dumper/{{ inventory_hostname }}_set_certificate.ps1.j2"
+    dest: 'C:\ScheduledTasks\windows_certs_dumper\set_certificate.ps1'
+  become: yes
+
+- name: window-certdumper - Download traefik-certs-dumper
+  win_get_url:
+    url: https://github.com/ldez/traefik-certs-dumper/releases/download/v2.7.0/traefik-certs-dumper_v2.7.0_windows_amd64.zip
+    dest: '%SYSTEMDRIVE%\Windows\Temp\traefik-certs-dumper_v2.7.0_windows_amd64.zip'
+    force: yes
+  become: yes
+
+- name: window-certdumper - Unzip traefik-certs-dumper
+  win_unzip:
+    src: '%SYSTEMDRIVE%\Windows\Temp\traefik-certs-dumper_v2.7.0_windows_amd64.zip'
+    dest: '%SYSTEMDRIVE%\ScheduledTasks\windows_certs_dumper\'
+  become: yes
+
+- name: window-certdumper - copy private key
+  win_copy:
+    src: '{{ windows_certs_dumper_ssh_key_priv_file_local_path }}'
+    dest: 'C:\ScheduledTasks\windows_certs_dumper\{{ windows_certs_dumper_ssh_key_priv_file_name }}'
+    remote_src: no
+  become: yes
+
+- name: window-certdumper - Disable and copy inherited ACE's for dir
+  win_acl_inheritance:
+    path: C:\ScheduledTasks\windows_certs_dumper
+    state: absent
+    reorganize: yes
+  become: yes
+  tags: cert_dumper_acl
+
+- name: window-certdumper - Remove BUILTIN\Users Users from ACL
+  win_acl:
+    path: C:\ScheduledTasks\windows_certs_dumper
+    rights: ReadAndExecute
+    user: BUILTIN\Users
+    type: allow
+    state: absent
+  become: yes
+  tags: cert_dumper_acl
+
+
+- name: window-certdumper - Remove NT Authority\Authenticated Users from ACL
+  win_shell: |
+    icacls C:\ScheduledTasks\windows_certs_dumper /remove:g *S-1-5-11
+  become: yes
+  tags: cert_dumper_acl
+
+- name: window-certdumper - Add id_rsa allow rights
+  win_acl:
+    path: C:\ScheduledTasks\windows_certs_dumper
+    user: "{{ domain_admin_user }}"
+    rights: FullControl
+    type: allow
+    state: present
+    propagation: 'None'
+  become: yes
+  tags: cert_dumper_acl
+
+- name: window-certdumper - Disable and copy inherited ACE's for id_rsa
+  win_acl_inheritance:
+    path: C:\ScheduledTasks\windows_certs_dumper\{{ windows_certs_dumper_ssh_key_priv_file_name }}
+    state: absent
+    reorganize: no
+  become: yes
+  tags: cert_dumper_acl
+
+- name: window-certdumper - Add id_rsa allow rights
+  win_acl:
+    path: C:\ScheduledTasks\windows_certs_dumper\{{ windows_certs_dumper_ssh_key_priv_file_name }}
+    user: "{{ domain_admin_user }}"
+    rights: FullControl
+    type: allow
+    state: present
+    propagation: 'None'
+  become: yes
+  tags: cert_dumper_acl
+
+- name: window-certdumper - Create cert_renew schedules Task
+  win_scheduled_task:
+    name: cert_renew
+    description: cert_renew
+    actions:
+      - path: C:\ScheduledTasks\windows_certs_dumper\dump_to_pfx.bat
+        working_directory: C:\ScheduledTasks\windows_certs_dumper
+    triggers:
+      - type: weekly
+        days_of_week: sunday
+        start_boundary: '2020-07-21T03:{{ "%02d" | format(59 | random) }}:22'
+        enabled: yes
+    username: '{{ domain_admin_user }}'
+    password: '{{ domain_admin_password }}'
+    update_password: yes
+    logon_type: password
+    run_level: highest
+    state: present
+    enabled: yes
+  become: yes
+
+- name: window-certdumper - run dump
+  win_command: C:\ScheduledTasks\windows_certs_dumper\dump_to_pfx.bat
+  args:
+    chdir: C:\ScheduledTasks\windows_certs_dumper
+  become: yes

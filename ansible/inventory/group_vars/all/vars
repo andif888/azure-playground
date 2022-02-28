@@ -1,0 +1,7 @@
+---
+ansible_user: "{{ vault_global_admin_user }}"
+# ansible_password: "{{ vault_global_admin_password }}"
+ansible_port: 22
+ansible_ssh_common_args: '{{ vault_global_ansible_ssh_common_args }}'
+ansible_ssh_retries: 3
+ansible_become_user: "{{ ansible_user }}"

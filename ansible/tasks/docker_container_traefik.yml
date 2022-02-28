@@ -1,0 +1,140 @@
+---
+- name: docker_container traefik - proxy_net
+  docker_network:
+    name: "{{ docker_container_traefik_network_name }}"
+    driver: bridge
+    attachable: yes
+    enable_ipv6: no
+    internal: no
+    ipam_config:
+      - subnet: "{{ docker_container_traefik_network_subnet }}"
+        gateway: "{{ docker_container_traefik_network_gateway }}"
+    state: present
+
+- name: docker_container_traefik_volume_dir_config
+  file:
+    path: "{{ docker_container_traefik_volume_dir }}/config"
+    state: directory
+
+- name: docker_container traefik - traefik.providers.file.toml
+  template:
+    src: templates/docker_container/traefik.providers.file.toml.j2
+    dest: "{{ docker_container_traefik_volume_dir }}/config/traefik.providers.file.toml"
+
+- name: docker_container pull images
+  community.docker.docker_image:
+    name: '{{ docker_container_traefik_image }}'
+    source: pull
+    # Select platform for pulling. If not specified, will pull whatever docker prefers.
+    pull:
+      platform: amd64
+  when:
+    - docker_container_traefik_pull is defined
+
+- name: docker_container traefik
+  docker_container:
+    name: "{{ docker_container_traefik_name }}"
+    image: "{{ docker_container_traefik_image }}"
+    state: started
+    recreate: "{{ docker_container_traefik_recreate | default('no') }}"
+    restart_policy: always
+    container_default_behavior: no_defaults
+    auto_remove: no
+    detach: yes
+    init: no
+    interactive: no
+    memory: "0"
+    paused: no
+    privileged: no
+    read_only: no
+    tty: no
+    env:
+      TRAEFIK_API: "true"
+      TRAEFIK_API_DASHBOARD: "true"
+      TRAEFIK_API_INSECURE: "true"
+      TRAEFIK_CERTIFICATESRESOLVERS_LE: "true"
+      #TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_CASERVER: https://acme-staging-v02.api.letsencrypt.org/directory   # Uncomment for using Letsencrypt staging server (Info at https://letsencrypt.org/docs/staging-environment/)
+      TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_EMAIL: "{{ docker_container_traefik_le_acme_email }}"
+      TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_HTTPCHALLENGE: "true"
+      TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_HTTPCHALLENGE_ENTRYPOINT: http
+      TRAEFIK_CERTIFICATESRESOLVERS_LE_ACME_STORAGE: "/letsencrypt/acme.json"
+      TRAEFIK_ENTRYPOINTS_HTTP: "true"
+      TRAEFIK_ENTRYPOINTS_HTTP_ADDRESS: ":80"
+      #TRAEFIK_ENTRYPOINTS_HTTP_PROXYPROTOCOL_TRUSTEDIPS: "{{ docker_container_traefik_entrypoints_trustedips }}"
+      TRAEFIK_ENTRYPOINTS_HTTPS: "true"
+      TRAEFIK_ENTRYPOINTS_HTTPS_ADDRESS: ":443"
+      #TRAEFIK_ENTRYPOINTS_HTTPS_PROXYPROTOCOL_TRUSTEDIPS: "{{ docker_container_traefik_entrypoints_trustedips }}"
+      TRAEFIK_GLOBAL_CHECKNEWVERSION: "false"
+      TRAEFIK_GLOBAL_SENDANONYMOUSUSAGE: "false"
+      TRAEFIK_LOG: "true"
+      TRAEFIK_LOG_LEVEL: INFO
+      TRAEFIK_PROVIDERS_DOCKER: "true"
+      TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"
+      TRAEFIK_PROVIDERS_DOCKER_NETWORK: "{{ docker_container_traefik_network_name }}"
+      TRAEFIK_PROVIDERS_FILE_FILENAME: /etc/traefik/traefik.providers.file.toml
+      TRAEFIK_PROVIDERS_FILE_WATCH: "true"
+      TRAEFIK_METRICS_PROMETHEUS: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - "{{ docker_container_traefik_volume_dir }}/config:/etc/traefik"
+      - "{{ docker_container_traefik_volume_dir }}/letsencrypt:/letsencrypt"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: "{{ docker_container_traefik_traefik_rule }}"
+      traefik.http.routers.api.entrypoints: http
+      traefik.http.routers.api.middlewares: https_redirect_permanent@file
+      # HTTPS
+      traefik.http.routers.api_ssl.rule: "{{ docker_container_traefik_traefik_rule }}"
+      traefik.http.routers.api_ssl.entrypoints: https
+      traefik.http.routers.api_ssl.service: api@internal
+      traefik.http.routers.api_ssl.middlewares: traefik_auth          # traefik_headers,traefik_auth
+      traefik.http.routers.api_ssl.tls: "true"
+      traefik.http.routers.api_ssl.tls.certResolver: le
+      traefik.http.routers.api_ssl.tls.options: default
+      #Auth Middleware
+      # traefik.http.middlewares.traefik_headers.headers.stsincludesubdomains: "true"
+      # traefik.http.middlewares.traefik_headers.headers.stsseconds: "315360000"
+      # traefik.http.middlewares.traefik_headers.headers.forcestsheader: "true"
+      # traefik.http.middlewares.traefik_headers.headers.contenttypenosniff: "true"
+      # traefik.http.middlewares.traefik_headers.headers.browserXssFilter: "true"
+      # traefik.http.middlewares.traefik_headers.headers.framedeny: "true"
+      traefik.http.middlewares.traefik_auth.basicauth.users: admin:$$apr1$$DLQML9aa$$/SiENb8q9GHbbSBcJgMsW/  # ensure to escape every $ with $$
+    networks_cli_compatible: yes
+    network_mode: "{{ docker_container_traefik_network_name }}"
+    purge_networks: yes
+    networks:
+     - name: "{{ docker_container_traefik_network_name }}"
+    published_ports:
+      - "80:80"
+      - "443:443"
+      - "8088:8080"
+
+- name: docker_container traefik - Wait until acme.json
+  wait_for:
+    path: "{{ docker_container_traefik_volume_dir }}/letsencrypt/acme.json"
+    state: present
+    timeout: 120
+    sleep: 1
+    delay: 2
+
+- name: docker_container certdumper
+  docker_container:
+    name: "{{ docker_container_traefik_certdumper_name }}"
+    image: "{{ docker_container_traefik_certdumper_image }}"
+    state: started
+    recreate: "{{ docker_container_traefik_recreate | default('no') }}"
+    restart_policy: always
+    container_default_behavior: no_defaults
+    auto_remove: no
+    detach: yes
+    init: no
+    interactive: no
+    memory: "0"
+    paused: no
+    privileged: no
+    read_only: no
+    tty: no
+    volumes:
+      - "{{ docker_container_traefik_volume_dir }}/letsencrypt/acme.json:/acme.json:ro"
+      - "{{ docker_container_traefik_volume_dir }}/certs:/dump"
+    command: "file --watch --domain-subdir --version v2"

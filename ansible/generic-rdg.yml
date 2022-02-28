@@ -1,0 +1,68 @@
+---
+- hosts: windows_rdg
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+
+    - name: generic-rdg - Windows Feature Remote Desktop Gateway
+      win_feature:
+        name: RDS-Gateway
+        state: present
+        include_sub_features: yes
+        include_management_tools: yes
+      register: win_feature
+
+    - name: generic-rdg - reboot if installing Remote Desktop Gateway requires it
+      win_reboot:
+      when: win_feature.reboot_required
+
+    - name: generic-rdg - Windows Feature Remote Desktop Web Access
+      win_feature:
+        name: RDS-Web-Access
+        state: present
+        include_sub_features: yes
+        include_management_tools: yes
+      register: win_feature_rds_web_access
+      tags: [never, win_feature_rds_web_access]
+
+    - name: generic-rdg - reboot if installing Remote Desktop Web Access requires it
+      win_reboot:
+      when: win_feature_rds_web_access.reboot_required
+      tags: [never, win_feature_rds_web_access]
+
+    - name: generic-rdg - Get local user group name
+      win_shell: |
+        $users = ([System.Security.Principal.SecurityIdentifier]'S-1-5-32-545').Translate( [System.Security.Principal.NTAccount]).Value
+        write-host $users
+      register: localuser_result
+      changed_when: false
+
+    - name: generic-rdg - Create a new RDS CAP
+      win_rds_cap:
+        name: RDS_CAP
+        user_groups:
+          - "{{ localuser_result.stdout.split(win_path_seperator)[-1] | trim }}"
+        session_timeout: 0
+        session_timeout_action: disconnect
+        allow_only_sdrts_servers: no
+        redirect_clipboard: yes
+        redirect_drives: yes
+        redirect_printers: no
+        redirect_serial: no
+        redirect_pnp: no
+        state: enabled
+
+
+
+    - name: generic-rdg - Create a new RDS RAP
+      win_rds_rap:
+        name: RDS_RAP
+        description: Allow all users to connect to any resource through ports 3389 and 3390
+        user_groups:
+          - "{{ localuser_result.stdout.split(win_path_seperator)[-1] | trim }}"
+        computer_group_type: allow_any
+        allowed_ports:
+          - any
+        state: enabled

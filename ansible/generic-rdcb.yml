@@ -1,0 +1,29 @@
+---
+- hosts: windows_rdcb
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - name: generic-rdcb - Windows Feature RDS-Licensing and RDS-Connection-Broker
+      win_feature:
+        name: '{{ item.name }}'
+        include_management_tools: yes
+        state: present
+      register: rdcb_feature
+      with_items:
+        - { name: 'RDS-Licensing' }
+        - { name: 'RDS-Connection-Broker' }
+      when:
+        - ansible_facts['distribution'] is search('Windows Server')
+
+    - debug:
+        var: rdcb_feature
+      when:
+        - ansible_facts['distribution'] is search('Windows Server')
+
+    - name: generic-rdcb - reboot if windows feature requires it
+      win_reboot:
+      when:
+        - rdcb_feature.reboot_required|default(false)
+        - ansible_facts['distribution'] is search('Windows Server')

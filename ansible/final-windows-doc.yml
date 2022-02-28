@@ -1,0 +1,53 @@
+---
+- hosts: windows_mgmt_tools
+
+  vars_files:
+    - vars/generic.yml
+
+  vars:
+    doc_sensitive: true
+
+  tasks:
+    - include_vars: "{{ item }}"
+      with_first_found:
+        - vars/{{ vault_global_generated_for_ansible_file_prefix }}06_fileshare.yml
+      ignore_errors: true
+
+    - name: Generate docs
+      win_template:
+        src: 'templates/doc.infra.md'
+        dest: '%PUBLIC%\Desktop\README.md'
+
+    - name: Generate Url Shortcut
+      win_template:
+        src: 'templates/windows_url_shortcut.url.j2'
+        dest: '%PUBLIC%\Desktop\guac.{{ public_hosting_domain }}.url'
+      loop:
+        - { url: 'https://guac.{{ public_hosting_domain }}'}
+
+    - name: rdp dir
+      win_file:
+        path: '%PUBLIC%\Desktop\rdp'
+        state: directory
+
+    - name: Generate rdp files
+      include_tasks: tasks/windows_rdp_file.yml
+      vars:
+        # rdp_file_username: '{{ ansible_user }}@{{ dns_domain_name }}'
+        rdp_file_full_address: '{{ item }}.{{ dns_domain_name }}'
+        rdp_file_gatewayhostname: 'rdg.{{ public_hosting_domain }}'
+        rdp_file_dest: '%PUBLIC%\Desktop\rdp\{{ item }}.rdp'
+      loop: '{{ groups["windows"] }}'
+
+    - name: Generate rdp files
+      include_tasks: tasks/linux_rdp_file.yml
+      vars:
+        # rdp_file_username: '{{ ansible_user }}@{{ dns_domain_name }}'
+        rdp_file_full_address: '{{ item }}.{{ dns_domain_name }}'
+        rdp_file_gatewayhostname: 'rdg.{{ public_hosting_domain }}'
+        rdp_file_dest: '%PUBLIC%\Desktop\rdp\{{ item }}-lbc.rdp'
+        rdp_file_load_balance_info: 'tsv://MS Terminal Services Plugin.1.{{ rds_session_collection_name }}'
+        rdp_file_alternate_full_address: '{{ item }}.{{ dns_domain_name }}'
+        rdp_file_workspace_id: '{{ item }}.{{ dns_domain_name }}'
+      loop: '{{ groups["windows_rdcb"] }}'
+      when: '"windows_rdcb" in groups'

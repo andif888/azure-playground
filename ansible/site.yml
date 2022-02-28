@@ -1,0 +1,36 @@
+---
+  # thread0
+- import_playbook: generic-dc.yml
+- import_playbook: generic-ca.yml
+- import_playbook: infra-dc.yml
+- import_playbook: generic-domain-members.yml
+
+  # thread1 -> depends_on: thread0
+- import_playbook: generic-rdcb.yml
+- import_playbook: generic-rdg.yml
+- import_playbook: infra-mgmt-tools.yml
+
+  # thread2 -> depends_on: thread0
+- import_playbook: generic-fs.yml
+
+  # thread3 -> depends_on: thread0
+- import_playbook: infra-dh.yml
+- import_playbook: infra-dh-containers.yml      # dependent on dc0 rdg0 available
+
+  # thread4 -> depends_on: thread1
+- import_playbook: infra-rdg-certificates.yml   # dependent on wg0 available
+
+  # thread5 -> depends_on: thread1
+- import_playbook: infra-fs.yml
+- import_playbook: infra-sqldev.yml
+
+- import_playbook: infra-windows-international.yml
+
+  # thread5 -> depends_on: thread4
+- import_playbook: azure-network-dns-servers.yml
+- import_playbook: generic-linux-reboot.yml
+
+
+- import_playbook: final-infra-dh-guac-connection-lists.yml
+- import_playbook: final-windows-doc.yml
+- import_playbook: final-local-doc.yml

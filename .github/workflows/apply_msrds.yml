@@ -1,0 +1,58 @@
+name: apply_msrds
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      skip-wait:
+        type: boolean
+        description: 'Skip 5 minutes wait for VMs, because VMs already provisioned'
+        default: false
+
+env:
+  TF_VAR_ssh_private_key_pem: ${{ secrets.TF_VAR_ssh_private_key_pem }}
+
+jobs:
+  build_job:
+    name: build_job
+    runs-on: ubuntu-latest
+
+    container:
+      image: andif888/docker-pataz:v0.9.0
+
+    steps:
+
+      - name: checkout_repo
+        uses: actions/checkout@v2
+
+      - name: show versions in container
+        run: |
+          ansible --version
+          packer --version
+          terraform --version
+          az --version
+
+      - name: apply_msrds
+        id: apply_msrds
+        run: |
+          echo -n ${{ secrets.envfile }} > .env && . ./.env
+          export vms_already_alive=${{ github.event.inputs.skip-wait }}
+          ./apply_msrds.sh
+
+      - name: cleanup_ssh
+        if: always()
+        run: rm -rf ./.github/.ssh
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create a GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          artifacts: "output/rdp/*.rdp"
+          bodyFile: "output/README.md"

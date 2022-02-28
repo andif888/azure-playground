@@ -1,0 +1,22 @@
+---
+- import_playbook: generic-domain-members.yml
+- import_playbook: generic-rdcb.yml
+- import_playbook: generic-rdg.yml
+  tags:
+    - win_feature_rds_web_access
+- import_playbook: generic-rdsh.yml
+- import_playbook: generic-rds-deployment.yml
+- import_playbook: infra-rdsh-fslogix.yml
+- import_playbook: infra-rdsh-apps.yml
+
+- import_playbook: infra-dh-containers.yml
+  tags:
+    - docker_container_traefik
+- import_playbook: infra-rdcb-certificates.yml
+- import_playbook: infra-windows-international.yml
+- import_playbook: final-infra-dh-guac-connection-lists.yml
+  tags:
+    - windows_rdcb_rdp
+    - windows_rdcb_ssh
+    - windows_rdsh_rdp
+    - windows_rdsh_ssh

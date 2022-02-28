@@ -1,0 +1,6 @@
+{% for guac_connection_name in guac_connection_names %}
+-- Delete Connection
+DELETE FROM guacamole_connection WHERE connection_name = '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AND parent_id = (
+  SELECT connection_group_id FROM guacamole_connection_group WHERE connection_group_name = '{{ guac_root_connection_group }}' AND parent_id is NULL
+);
+{% endfor %}

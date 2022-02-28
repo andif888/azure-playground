@@ -1,0 +1,80 @@
+---
+- hosts: windows_mgmt_tools
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - include_vars: "{{ item }}"
+      with_first_found:
+        - vars/06_fileshare.yml
+      ignore_errors: true
+
+    - name: infra-adtools - Windows Feature Remote Administration
+      win_feature:
+        name: '{{ item }}'
+        state: present
+      loop: '{{ mgmt_tools_windows_feature_rsat }}'
+      tags: mgmt_tools_windows_feature_rsat
+
+    - name: Ensure the required NuGet package provider version is installed
+      ansible.windows.win_shell: Find-PackageProvider -Name Nuget -ForceBootstrap -IncludeDependencies -Force
+
+    - name: Install PowerShellGet
+      win_shell: |
+        Install-Module -Name PowerShellGet -Force
+      tags: powershellget
+
+    - name: Update PowerShellGet
+      win_shell: |
+        Update-Module -Name PowerShellGet
+      tags: powershellget
+
+    - name: Add a PowerShell modules
+      community.windows.win_psmodule:
+        name: "{{ item }}"
+        repository: "PSGallery"
+        state: present
+      loop: '{{ mgmt_tools_psgallery_modules }}'
+
+    - name: infra-tools - install Chocolatey            # https://github.com/ansible/ansible/issues/53860
+      win_chocolatey:
+        name: chocolatey
+        state: present
+      tags: chocolatey
+
+    - name: infra-tools - disable enhanced exit codes   # https://github.com/ansible/ansible/issues/53860
+      win_chocolatey_feature:
+        name: useEnhancedExitCodes
+        state: disabled
+      tags: chocolatey
+
+    - name: infra-tools - Install packages with chocolatey
+      win_chocolatey:
+        name: '{{ item }}'
+        state: present
+      loop: '{{ mgmt_tools_chocolatey }}'
+      tags: chocolatey
+
+    - name: Create desktop shortcuts for azure files
+      community.windows.win_shortcut:
+        src: '%windir%\Explorer.exe'
+        dest: '%PUBLIC%\Desktop\{{ item }} on Azure Files.lnk'
+        arguments: '/e ,/root,\\{{ fileshare_storage_account_primary_file_host }}\{{ item }}'
+        icon: '%windir%\system32\imageres.dll,69'
+      loop: '{{ fileshare_storage_account_shares }}'
+      tags:
+        - desktop_shortcut
+        - azure_fileshares
+      when:
+        - fileshare_storage_account_shares is defined
+
+    - name: Create desktop shortcuts for files shares
+      community.windows.win_shortcut:
+        src: '%windir%\Explorer.exe'
+        dest: '%PUBLIC%\Desktop\{{ item.name }} on {{ groups["windows_fs"][0] }}.lnk'
+        arguments: '/e ,/root,\\{{ groups["windows_fs"][0] }}\{{ item.name }}'
+        icon: '%windir%\system32\imageres.dll,137'
+      loop: '{{ winfs_shares }}'
+      tags:
+        - desktop_shortcut

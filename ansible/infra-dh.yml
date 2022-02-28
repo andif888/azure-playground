@@ -1,0 +1,13 @@
+---
+- hosts: linux_dh
+  become: true
+  vars_files:
+    - vars/generic.yml
+
+  roles:
+    - { role: ansible-role-docker }
+
+  tasks:
+    - name: generic-dh - Install docker python sdk
+      pip:
+        name: docker

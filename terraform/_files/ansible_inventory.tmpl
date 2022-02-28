@@ -1,0 +1,15 @@
+%{ if is_windows_image == true }[windows]%{ else }[linux]%{ endif }
+%{ for index, hostname in hostnames ~}${hostname}
+%{ endfor ~}
+
+[${ansible_group}]
+%{ for index, hostname in hostnames ~}${hostname} ansible_host=${ansible_hosts[index]} ${ansible_host_vars}
+%{ endfor ~}
+
+%{ if ansible_hostgroups != null }
+%{ for index, hostgroup in ansible_hostgroups ~}
+[${hostgroup}]
+%{ for index, hostname in hostnames ~}${hostname}
+%{ endfor ~}
+
+%{ endfor ~}%{ endif }

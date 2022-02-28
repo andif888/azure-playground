@@ -1,0 +1,11 @@
+Import-Module RemoteDesktop
+
+$Password = ConvertTo-SecureString -String '{{ certdumper_password }}' -AsPlainText -Force
+
+Set-RDCertificate -Role RDPublishing -ImportPath 'C:\ScheduledTasks\windows_certs_dumper\{{ ansible_hostname }}.{{ public_hosting_domain }}.pfx' -Password $Password -ConnectionBroker "{{ rds_connection_broker_fqdn }}" -Force
+Set-RDCertificate -Role RDRedirector -ImportPath 'C:\ScheduledTasks\windows_certs_dumper\{{ ansible_hostname }}.{{ public_hosting_domain }}.pfx' -Password $Password -ConnectionBroker "{{ rds_connection_broker_fqdn }}" -Force
+Set-RDCertificate -Role RDWebAccess -ImportPath 'C:\ScheduledTasks\windows_certs_dumper\{{ groups["windows_rdg"][0] }}.{{ public_hosting_domain }}.pfx' -Password $Password -ConnectionBroker "{{ rds_connection_broker_fqdn }}" -Force
+Set-RDCertificate -Role RDGateway -ImportPath 'C:\ScheduledTasks\windows_certs_dumper\{{ groups["windows_rdg"][0] }}.{{ public_hosting_domain }}.pfx' -Password $Password -ConnectionBroker "{{ rds_connection_broker_fqdn }}" -Force
+
+# Finished
+Write-Output "Finished"

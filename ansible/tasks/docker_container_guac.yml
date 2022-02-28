@@ -1,0 +1,199 @@
+---
+- name: docker_container guac - config
+  copy:
+    src: "templates/docker_container/guac/"
+    dest: "{{ docker_container_guac_volume_dir }}/"
+    owner: root
+    group: root
+
+- name: docker_container guac - .env
+  template:
+    src: templates/docker_container/guac/sample.env.j2
+    dest: "{{ docker_container_guac_volume_dir }}/.env"
+  register: docker_container_guac_env_result
+
+- name: docker_container guac - schema.sql
+  template:
+    src: templates/docker_container/guac/schema.sql.j2
+    dest: "{{ docker_container_guac_volume_dir }}/mysql_init/schema.sql"
+
+- name: docker_container guac - auth-totp extenstions directory
+  file:
+    path: "{{ docker_container_guac_volume_dir }}/guac_home/extensions"
+    state: directory
+  tags: docker_container_guac_mfa
+  when: guac_mfa_enabled
+
+- name: docker_container guac - download auth-totp
+  unarchive:
+    src: 'https://apache.org/dyn/closer.lua/guacamole/{{ docker_container_guac_version }}/binary/guacamole-auth-totp-{{ docker_container_guac_version }}.tar.gz?action=download'
+    dest: '{{ docker_container_guac_volume_dir }}'
+    creates: '{{ docker_container_guac_volume_dir }}/guacamole-auth-totp-{{ docker_container_guac_version }}/guacamole-auth-totp-{{ docker_container_guac_version }}.jar'
+    remote_src: yes
+  tags: docker_container_guac_mfa
+  when: guac_mfa_enabled
+
+- name: docker_container guac - copy auth-totp to extension directory
+  copy:
+    src: '{{ docker_container_guac_volume_dir }}/guacamole-auth-totp-{{ docker_container_guac_version }}/guacamole-auth-totp-{{ docker_container_guac_version }}.jar'
+    dest: '{{ docker_container_guac_volume_dir }}/guac_home/extensions/guacamole-auth-totp-{{ docker_container_guac_version }}.jar'
+    remote_src: yes
+  register: docker_container_guac_mfa_result
+  tags: docker_container_guac_mfa
+  when: guac_mfa_enabled
+
+- name: docker_container guac - check if auth-totp extenstions file exists
+  ansible.builtin.stat:
+    path: '{{ docker_container_guac_volume_dir }}/guac_home/extensions/guacamole-auth-totp-{{ docker_container_guac_version }}.jar'
+  register: docker_container_guac_mfa_file_exists_result
+
+- name: docker_container guac - remove auth-totp extenstions file
+  file:
+    path: '{{ docker_container_guac_volume_dir }}/guac_home/extensions/guacamole-auth-totp-{{ docker_container_guac_version }}.jar'
+    state: absent
+    register: docker_container_guac_mfa_file
+  tags: docker_container_guac_mfa
+  when:
+    - guac_mfa_enabled == false
+    - docker_container_guac_mfa_file_exists_result.stat.exists
+
+
+- name: docker_container guac - backend net
+  docker_network:
+    name: "{{ docker_container_guac_name }}_backend"
+    driver: bridge
+    attachable: yes
+    enable_ipv6: no
+    internal: no
+    state: present
+
+- name: docker_container guac-db
+  docker_container:
+    name: "{{ docker_container_guac_db_name }}"
+    image: "{{ docker_container_guac_db_image }}"
+    state: started
+    recreate: "{{ docker_container_guac_recreate | default('no') }}"
+    restart: "{{ (docker_container_guac_env_result.changed or (docker_container_guac_mfa_result is defined and docker_container_guac_mfa_result.changed) or (docker_container_guac_mfa_file is defined and docker_container_guac_mfa_file.changed)) | ternary('yes', 'no') }}"
+    restart_policy: always
+    container_default_behavior: no_defaults
+    auto_remove: no
+    detach: yes
+    init: no
+    interactive: no
+    memory: "0"
+    paused: no
+    privileged: no
+    read_only: no
+    tty: no
+    env_file: "{{ docker_container_guac_volume_dir }}/.env"
+    env:
+      # MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-guacsomethingsecret4444}"
+      # MYSQL_USER: "${MYSQL_USER:-guacamole}"
+      # MYSQL_PASSWORD: "${MYSQL_PASSWORD:-guacsomethingsecret8888}"
+      # MYSQL_DATABASE: "${MYSQL_DATABASE:-guacamole}"
+    volumes:
+      - "{{ docker_container_guac_volume_dir }}/mysql:/var/lib/mysql"
+      - "{{ docker_container_guac_volume_dir }}/mysql_init/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro"
+    networks_cli_compatible: yes
+    network_mode: "{{ docker_container_guac_name }}_backend"
+    purge_networks: yes
+    networks:
+      - name: "{{ docker_container_guac_name }}_backend"
+
+- name: docker_container guacd
+  docker_container:
+    name: "{{ docker_container_guac_d_name }}"
+    image: "{{ docker_container_guac_d_image }}"
+    state: started
+    recreate: "{{ docker_container_guac_recreate | default('no') }}"
+    restart: "{{ (docker_container_guac_env_result.changed or (docker_container_guac_mfa_result is defined and docker_container_guac_mfa_result.changed) or (docker_container_guac_mfa_file is defined and docker_container_guac_mfa_file.changed)) | ternary('yes', 'no') }}"
+    restart_policy: always
+    container_default_behavior: no_defaults
+    auto_remove: no
+    detach: yes
+    init: no
+    interactive: no
+    memory: "0"
+    paused: no
+    privileged: no
+    read_only: no
+    tty: no
+    networks_cli_compatible: yes
+    network_mode: "{{ docker_container_guac_name }}_backend"
+    purge_networks: yes
+    networks:
+      - name: "{{ docker_container_guac_name }}_backend"
+
+- name: docker_container guacamole
+  docker_container:
+    name: "{{ docker_container_guac_name }}"
+    image: "{{ docker_container_guac_image }}"
+    state: started
+    recreate: "{{ docker_container_guac_recreate | default('no') }}"
+    restart: "{{ (docker_container_guac_env_result.changed or (docker_container_guac_mfa_result is defined and docker_container_guac_mfa_result.changed) or (docker_container_guac_mfa_file is defined and docker_container_guac_mfa_file.changed)) | ternary('yes', 'no') }}"
+    restart_policy: always
+    container_default_behavior: no_defaults
+    auto_remove: no
+    detach: yes
+    init: no
+    interactive: no
+    memory: "0"
+    paused: no
+    privileged: no
+    read_only: no
+    tty: no
+    env_file: "{{ docker_container_guac_volume_dir }}/.env"
+    env:
+      GUACAMOLE_HOME: "/guac_home"
+      MYSQL_HOSTNAME: "mysql"
+      # MYSQL_DATABASE: "${MYSQL_DATABASE:-guacamole}"
+      # MYSQL_USER: "${MYSQL_USER:-guacamole}"
+      # MYSQL_PASSWORD: "${MYSQL_PASSWORD:-guacsomethingsecret8888}"
+      GUACD_HOSTNAME: "guacd"
+      GUACD_PORT: "4822"
+      # LDAP_HOSTNAME: "${LDAP_HOSTNAME}"
+      # LDAP_PORT: "${LDAP_PORT:-389}"
+      # LDAP_ENCRYPTION_METHOD: "${LDAP_ENCRYPTION_METHOD:-none}"
+      # LDAP_USER_BASE_DN: "${LDAP_USER_BASE_DN}"
+      # LDAP_GROUP_BASE_DN: "${LDAP_GROUP_BASE_DN}"
+      # LDAP_SEARCH_BIND_DN: "${LDAP_SEARCH_BIND_DN}"
+      # LDAP_SEARCH_BIND_PASSWORD: "${LDAP_SEARCH_BIND_PASSWORD}"
+      # LDAP_USERNAME_ATTRIBUTE: "${LDAP_USERNAME_ATTRIBUTE:-userPrincipalName}"
+      # LDAP_GROUP_NAME_ATTRIBUTE: "${LDAP_GROUP_NAME_ATTRIBUTE:-cn}"
+      # LDAP_MEMBER_ATTRIBUTE: "${LDAP_MEMBER_ATTRIBUTE:-member}"
+      # LDAP_USER_SEARCH_FILTER: "${LDAP_USER_SEARCH_FILTER:-(&(objectCategory=person)(objectclass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))}"
+      # TOTP_ISSUER: "${FQDN_HOST_NAME:?err}"
+    volumes:
+      - "{{ docker_container_guac_volume_dir }}/guac_conf/server.xml:/usr/local/tomcat/conf/server.xml"
+      - "{{ docker_container_guac_volume_dir }}/guac_home:/guac_home"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.guac.rule: "{{ docker_container_guac_traefik_rule }}"
+      traefik.http.routers.guac.entrypoints: http
+      traefik.http.routers.guac.middlewares: https_redirect_permanent@file
+      # HTTPS
+      traefik.http.routers.guac_ssl.rule: "{{ docker_container_guac_traefik_rule }}"
+      traefik.http.routers.guac_ssl.entrypoints: https
+      traefik.http.routers.guac_ssl.service: guac
+      traefik.http.routers.guac_ssl.tls: "true"
+      traefik.http.routers.guac_ssl.tls.certResolver: le
+      traefik.http.routers.guac_ssl.tls.options: default
+      traefik.http.routers.guac_ssl.middlewares: guac_headers,guac_addprefix
+      # Auth Middleware
+      traefik.http.middlewares.guac_headers.headers.stsincludesubdomains: "true"
+      traefik.http.middlewares.guac_headers.headers.stsseconds: "315360000"
+      traefik.http.middlewares.guac_headers.headers.forcestsheader: "true"
+      traefik.http.middlewares.guac_addprefix.addprefix.prefix: "/guacamole"
+      # Service
+      traefik.http.services.guac.loadbalancer.server.port: "8080"
+    networks_cli_compatible: yes
+    network_mode: "{{ docker_container_guac_name }}_backend"
+    purge_networks: yes
+    networks:
+      - name: "{{ docker_container_guac_name }}_backend"
+        links:
+          - "{{ docker_container_guac_db_name }}:mysql"
+          - "{{ docker_container_guac_d_name }}:guacd"
+      - name: "{{ docker_container_traefik_network_name }}"
+    published_ports:
+      - "8081:8080"

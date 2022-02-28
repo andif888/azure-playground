@@ -1,0 +1,9 @@
+---
+- hosts: linux
+  become: true
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - name: generic-linux-reboot
+      reboot:

@@ -1,0 +1,63 @@
+{% for guac_connection_name in guac_connection_names %}
+-- Create Connection
+INSERT INTO guacamole_connection (connection_name, parent_id, protocol)
+SELECT
+    '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}'                                         AS connection_name,
+    guacamole_connection_group.connection_group_id    AS parent_id,
+    '{{ guac_connection_protocol | default("rdp") }}' AS protocol
+FROM guacamole_connection_group WHERE connection_group_name = '{{ guac_root_connection_group }}' AND parent_id is NULL;
+
+-- Create Connection Parameters
+INSERT INTO guacamole_connection_parameter (connection_id, parameter_name, parameter_value)
+SELECT guacamole_connection.connection_id, parameter_name, parameter_value
+FROM (
+              SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'hostname'               AS parameter_name, '{{ guac_connection_name }}.{{ dns_domain_name }}' AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'port'                   AS parameter_name, '{{ guac_connection_port | default(3389) }}'  AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'username'               AS parameter_name, '{{ guac_connection_username | default("${GUAC_USERNAME}") }}'  AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'password'               AS parameter_name, '{{ guac_connection_password | default("${GUAC_PASSWORD}") }}'  AS parameter_value
+        {% if (not guac_connection_protocol is defined) or (guac_connection_protocol == 'rdp') %}
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'disable-audio'          AS parameter_name, 'true'                       AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'enable-font-smoothing'  AS parameter_name, 'true'                       AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'ignore-cert'            AS parameter_name, 'true'                       AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'resize-method'          AS parameter_name, 'display-update'             AS parameter_value
+        UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'security'               AS parameter_name, 'nla'                        AS parameter_value
+        {% if (win_user_language | lower) == 'de-de' %}UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'server-layout'          AS parameter_name, 'de-de-qwertz'               AS parameter_value
+        {% endif %}
+        {% if (guac_connection_rdp_console | default(false)) %}UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'console'          AS parameter_name, 'true'               AS parameter_value
+        {% endif %}
+        {% if guac_connection_rdp_load_balance_info is defined %}UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'load-balance-info'          AS parameter_name, '{{ guac_connection_rdp_load_balance_info }}'               AS parameter_value
+        {% endif %}{% endif %}
+        -- UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'server-layout'          AS parameter_name, 'de-de-qwertz'               AS parameter_value
+        -- UNION SELECT '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS connection_name, 'timezone'               AS parameter_name, 'Europe/Berlin'              AS parameter_value
+) params
+JOIN guacamole_connection ON params.connection_name = guacamole_connection.connection_name AND guacamole_connection.parent_id = (
+  SELECT connection_group_id FROM guacamole_connection_group WHERE connection_group_name = '{{ guac_root_connection_group }}' AND parent_id is NULL
+);
+
+-- Create Connection Permission for user
+INSERT INTO guacamole_connection_permission (entity_id, connection_id, permission)
+SELECT guacamole_entity.entity_id, guacamole_connection.connection_id, permission
+FROM (
+          SELECT '{{ guac_ldap_admin_user }}' AS username, '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS affected_connection_name, 'READ'        AS permission
+    UNION SELECT '{{ guac_ldap_admin_user }}' AS username, '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS affected_connection_name, 'UPDATE'      AS permission
+    UNION SELECT '{{ guac_ldap_admin_user }}' AS username, '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS affected_connection_name, 'DELETE'      AS permission
+    UNION SELECT '{{ guac_ldap_admin_user }}' AS username, '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS affected_connection_name, 'ADMINISTER'  AS permission
+
+) permissions
+JOIN guacamole_entity     ON permissions.username = guacamole_entity.name AND guacamole_entity.type = 'USER'
+JOIN guacamole_connection ON permissions.affected_connection_name = guacamole_connection.connection_name AND guacamole_connection.parent_id = (
+  SELECT connection_group_id FROM guacamole_connection_group WHERE connection_group_name = '{{ guac_root_connection_group }}' AND parent_id is NULL
+);
+
+-- Create Connection Permission for group
+INSERT INTO guacamole_connection_permission (entity_id, connection_id, permission)
+SELECT guacamole_entity.entity_id, guacamole_connection.connection_id, permission
+FROM (
+          SELECT '{{ guac_ldap_admin_group }}' AS groupname, '{{ guac_connection_name }} ({{ guac_connection_protocol | default("rdp") }}){% if guac_connection_rdp_load_balance_info is defined %} - lbc{% endif %}{% if (guac_connection_rdp_console | default(false)) %} - console{% endif %}' AS affected_connection_name, 'READ' AS permission
+
+) permissions
+JOIN guacamole_entity     ON permissions.groupname = guacamole_entity.name AND guacamole_entity.type = 'USER_GROUP'
+JOIN guacamole_connection ON permissions.affected_connection_name = guacamole_connection.connection_name AND guacamole_connection.parent_id = (
+  SELECT connection_group_id FROM guacamole_connection_group WHERE connection_group_name = '{{ guac_root_connection_group }}' AND parent_id is NULL
+);
+{% endfor %}

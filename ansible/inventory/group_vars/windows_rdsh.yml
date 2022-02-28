@@ -1,0 +1,14 @@
+---
+windows_desktop_shortcuts:
+  - { src: '%windir%\explorer.exe', dest: '%PUBLIC%\Desktop\Printers.lnk', arguments: 'shell:::{A8A91A66-3A7D-4424-8D24-04E180695C7A}', icon: '%windir%\system32\devicecenter.dll,0' }
+  - { src: '%windir%\system32\notepad.exe', dest: '%PUBLIC%\Desktop\Notepad.lnk' }
+
+windows_printers:
+  - { name: 'Floor 1', driver: 'Microsoft IPP Class Driver', port: 'LPT1:' }
+  - { name: 'Floor 2', driver: 'Microsoft PS Class Driver', port: 'LPT1:' }
+  - { name: 'Corporate', driver: 'Microsoft PCL6 Class Driver', port: 'LPT1:' }
+
+windows_chocolatey_apps:
+  - 7zip.install
+  - firefox
+  - notepadplusplus.install

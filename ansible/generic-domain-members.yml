@@ -1,0 +1,27 @@
+---
+- hosts: windows_members
+
+  vars_files:
+    - vars/generic.yml
+
+
+  roles:
+    - { role: ansible-role-win-domain-member }
+
+  pre_tasks:
+    - name: Update facts of dc
+      setup:
+      delegate_to: '{{ item }}'
+      delegate_facts: yes
+      become_method: runas
+      become_user: '{{ domain_admin_user }}'
+      with_items: '{{ groups["dc"] }}'
+      when:
+        - groups["dc"] is defined
+        - hostvars[item]["ansible_ip_addresses"] is not defined
+
+    - name: disable antimalware realtime shit
+      win_shell: |
+                Set-MpPreference -DisableRealtimeMonitoring $true
+      ignore_errors: yes
+      tags: disable_antimalware

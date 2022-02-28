@@ -1,0 +1,255 @@
+---
+win_path_seperator: '\'
+win_user_language: '{{ vault_global_win_user_language | default("en-US") }}'
+win_timezone: '{{ vault_global_win_timezone | default("UTC") }}'
+
+# used in treafik revers proxy and the automatic ssl certificate generation
+# using letsencrypt
+public_hosting_domain: '{{ vault_global_public_hosting_domain }}'
+
+# variables for active directory domain, which gets created
+domain_netbios_name: "{{ vault_global_ad_domain_netbios_name | upper }}"
+dns_domain_name: "{{ vault_global_ad_domain_name }}"
+domain_ou_base: "{{ vault_global_ad_domain_dn_name }}"
+
+# used for domain join
+hostname: '{{ inventory_hostname }}'
+
+domain_admin_user: "{{ vault_global_admin_user }}@{{ dns_domain_name }}"
+# must meet windows password complexity requirements
+domain_admin_password: "{{ vault_global_admin_password }}"
+domain_admin_user_short: "{{ vault_global_admin_user }}"
+# use for domain join, client need to lookup domain controllers
+dns_client_dns_server_ip: '{{ hostvars[groups["dc"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}'
+# AD safe mode password for DC
+safe_mode_password: '{{ domain_admin_password }}_safemode'
+
+win_everyone_username: everyone
+domain_admin_user_group: Domain Admins
+
+# generating some AD objects
+domain_user: user1
+domain_user_password: '{{ domain_admin_password }}'
+domain_ous:
+  - { name: 'infra', path: '{{ domain_ou_base }}' }
+  - { name: 'groups', path: 'OU=infra,{{ domain_ou_base }}' }
+  - { name: 'users', path: 'OU=infra,{{ domain_ou_base }}' }
+  - { name: 'it', path: 'OU=users,OU=infra,{{ domain_ou_base }}' }
+  - { name: 'marketing', path: 'OU=users,OU=infra,{{ domain_ou_base }}' }
+  - { name: 'finance', path: 'OU=users,OU=infra,{{ domain_ou_base }}' }
+  - { name: 'sales', path: 'OU=users,OU=infra,{{ domain_ou_base }}' }
+  - { name: 'computers', path: 'OU=infra,{{ domain_ou_base }}' }
+domain_computers_ou_path: 'OU={{ domain_ous[7].name }},{{ domain_ous[7].path }}'
+domain_groups_ou_path: 'OU={{ domain_ous[1].name }},{{ domain_ous[1].path }}'
+domain_groups:
+  - { name: 'IT' }          # IT group will get admin permission in guacamole
+  - { name: 'Marketing' }
+  - { name: 'Finance' }
+  - { name: 'Sales' }
+domain_users_ou_path: 'OU={{ domain_ous[2].name }},{{ domain_ous[2].path }}'
+domain_user_ou_path_it: 'OU={{ domain_ous[3].name }},{{ domain_ous[3].path }}'
+domain_user_ou_path_marketing: 'OU={{ domain_ous[4].name }},{{ domain_ous[4].path }}'
+domain_user_ou_path_finance: 'OU={{ domain_ous[5].name }},{{ domain_ous[5].path }}'
+domain_user_ou_path_sales: 'OU={{ domain_ous[6].name }},{{ domain_ous[6].path }}'
+domain_users:
+  - { name: 'a-root', groups: ['IT'], ou_path: '{{ domain_user_ou_path_it }}' }   # a-root will become a domain admin
+  - { name: 'svc-sccm', groups: [], ou_path: '{{ domain_user_ou_path_it }}' }
+  - { name: 'svc-ldap-read', groups: [], ou_path: '{{ domain_user_ou_path_it }}' }
+  - { name: 'adam', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'berta', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'carla', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'david', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'eva', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'frank', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'gary', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'helen', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'jeff', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'kathy', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'leo', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'mark', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'nancy', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'oli', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'pete', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'rachel', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'sarah', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'tim', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'uta', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'vinc', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'wilma', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+  - { name: 'xenia', groups: ['Finance'], ou_path: '{{ domain_user_ou_path_finance }}' }
+  - { name: 'yanis', groups: ['Finance'], ou_path: '{{ domain_user_ou_path_finance }}' }
+  - { name: 'zoe', groups: ['Finance'], ou_path: '{{ domain_user_ou_path_finance }}' }
+  - { name: 'user1', groups: ['Marketing'], ou_path: '{{ domain_user_ou_path_marketing }}' }
+  - { name: 'user2', groups: ['Sales'], ou_path: '{{ domain_user_ou_path_sales }}' }
+
+# used for domain joining
+# we must reconfigure DNS in network adapters, so that they can find the DC
+dns_client_configure: True
+dns_client_adapter: '{{ ansible_interfaces[0].connection_name }}'
+
+# generic_sql
+
+sql_server_data_disk_drive_letter: F
+sql_server_dev_download_url: 'https://download.microsoft.com/download/d/a/2/da259851-b941-459d-989c-54a18a5d44dd/SQL2019-SSEI-Dev.exe'
+sql_server_dev_extract_dir: 'C:\windows\temp'
+sql_server_dev_install_exe: '{{ sql_server_dev_extract_dir }}\SQL2019-SSEI-Dev.exe'
+sql_server_iso_file_path: '{{ sql_server_dev_extract_dir }}\SQLServer2019-x64-ENU-Dev.iso'
+sql_server_install_configuration_template: 'templates/sql_server_configuration_file_ini.j2'
+sql_server_already_installed_path: '{{ sql_server_data_disk_drive_letter }}:\mssql\Data\MSSQL15.MSSQLSERVER\MSSQL\DATA'
+
+# infra managment tools
+mgmt_tools_windows_feature_rsat:
+  - RSAT-AD-PowerShell
+  - RSAT-ADCS-Mgmt
+  - RSAT-ADDS-Tools
+  - RSAT-DNS-Server
+  - RSAT-File-Services
+  - GPMC
+
+mgmt_tools_psgallery_modules:
+  - AZ.Storage
+  - AZ.Accounts
+  - AzureAD
+
+mgmt_tools_chocolatey:
+  - 7zip.install
+  - sql-server-management-studio
+  - vscode
+
+# infra_fs
+
+winfs_data_disk_label: 'DATA'
+winfs_data_disk_drive_letter: F
+winfs_shares:
+  - { name: 'officecontainer', path: '{{ winfs_data_disk_drive_letter }}:\officecontainer', description: 'File share for hosting FSLogix Profile Container' }
+  - { name: 'profilecontainer', path: '{{ winfs_data_disk_drive_letter }}:\profilecontainer', description: 'File share for hosting FSLogix Office Container' }
+  - { name: 'stuff', path: '{{ winfs_data_disk_drive_letter }}:\stuff', description: 'File share for hosting random stuff' }
+
+# infra_dh
+
+docker_compose_version: 1.29.2
+docker_users: ['{{ vault_global_admin_user }}']
+docker_daemon_options:
+  bip: "172.29.0.1/16"
+  default-address-pools:
+    - { base: "172.73.0.0/16", size: 24 }
+
+# windows certdumper to renew ssl certificate on windows VMs (remote desktop gateway)
+windows_certs_dumper_ssh_key_priv_file_name: "id_rsa"
+windows_certs_dumper_ssh_key_priv_file_local_path: '{{ vault_global_ssh_private_key }}'
+
+# Docker
+docker_host_subnet_base: 172.73.0.0/16
+docker_host_subnet_size: 24
+docker_host_bridge_ip: 172.29.0.1/16
+docker_container_volume_base_dir: /srv/docker_data
+
+# Docker container traefik
+docker_container_traefik_name: traefik
+docker_container_traefik_image: "traefik:v2.6"
+docker_container_traefik_network_name: "{{ docker_container_traefik_name }}_proxy_net"
+docker_container_traefik_network_subnet: "{{ docker_host_subnet_base | ansible.netcommon.ipsubnet(24, 7) }}"
+docker_container_traefik_network_gateway: "{{ docker_container_traefik_network_subnet | ansible.netcommon.ipaddr('next_usable') }}"
+docker_container_traefik_le_acme_email: "postmaster@{{ public_hosting_domain }}"
+docker_container_traefik_volume_dir: "{{ docker_container_volume_base_dir }}/{{ docker_container_traefik_name }}"
+docker_container_traefik_entrypoints_trustedips: "127.0.0.1/32, {{ '/'.join((ansible_default_ipv4.network, ansible_default_ipv4.netmask))  | ansible.netcommon.ipaddr('net') }}"
+docker_container_traefik_traefik_rule: "Host(`traefik.{{ public_hosting_domain }}`)"
+
+docker_container_traefik_certdumper_name: certdumper
+docker_container_traefik_certdumper_image: "ldez/traefik-certs-dumper:v2.7.0"
+
+# Docker container guac
+docker_container_guac_version: 1.4.0
+docker_container_guac_name: guac
+docker_container_guac_image: "guacamole/guacamole"
+
+docker_container_guac_d_name: guacd
+docker_container_guac_d_image: "guacamole/guacd"
+
+docker_container_guac_db_name: guac-db
+docker_container_guac_db_image: "mysql"
+
+docker_container_guac_volume_dir: "{{ docker_container_volume_base_dir }}/{{ docker_container_guac_name }}"
+docker_container_guac_traefik_rule: "Host(`guac.{{ public_hosting_domain }}`)"
+
+guac_mfa_enabled: '{{ vault_global_guac_mfa_enabled }}'
+
+guac_db_name: '{{ domain_netbios_name }}'
+guac_db_user: '{{ domain_admin_user_short }}'
+guac_db_password: '{{ domain_admin_password }}'
+guac_db_root_password: '{{ domain_admin_password }}'
+
+guac_ldap_admin_user: '{{ domain_admin_user }}'
+guac_ldap_admin_group: '{{ domain_groups[0].name }}'
+guac_root_connection_group: '{{ domain_ous[0].name }}'
+guac_initial_connection_name: '{{ hostvars[groups["windows_rdg"][0]]["ansible_hostname"] }}'
+guac_initial_connection_hostname: '{{ guac_initial_connection_name }}.{{ dns_domain_name }}'
+
+# RDSH
+# remotedesktopuser_group_name: Remote Desktop Users
+# members_of_remotedesktopuser:
+#   - '{{ domain_netbios_name }}\Domain Users'
+install_rds_licensing: false  # RDS Licening gets installed on RDCB
+rds_licensing_mode: 4
+rds_licensing_set_policy: false
+rds_licensing_mode_name: PerUser
+rds_licensing_server_name: '{{ groups["windows_rdcb"][0] }}.{{ dns_domain_name }}'
+rds_connection_broker_fqdn: '{{ groups["windows_rdcb"][0] }}.{{ dns_domain_name }}'
+rds_gateway_server_fqdn: '{{ groups["windows_rdg"][0] }}.{{ dns_domain_name }}'
+rds_gateway_server_external_fqdn: 'rdg.{{ public_hosting_domain }}'
+rds_web_access_server_fqdn: '{{ groups["windows_rdg"][0] }}.{{ dns_domain_name }}'
+rds_session_hosts_fqdn: "{{ groups['windows_rdsh'] | product([dns_domain_name]) | map('join', '.') }}"
+rds_session_collection_name: RDS-Desktop
+rds_session_collection_description: "collection of full desktops"
+rds_session_collection_clientprinter_redirected: $false
+rds_session_collection_easyprint_driver_enabled: $false
+rds_session_collection_client_device_redirection_options: "AudioVideoPlayBack, AudioRecording, PlugAndPlayDevice, Clipboard, Drive, SmartCard, TimeZone"
+
+
+# FSLogix
+fslogix_service_product_id: '{11A79880-FCDA-4252-BE28-BF7D1C38FBE9}'
+fslogix_rule_editor_product_id: '{53C83608-DF84-41DA-B658-A03F548EF522}'
+fslogix_rule_editor_install: true
+fslogix_rule_files_contents: 'templates/fslogix/rules/'
+
+# FSLogix Profile Container
+# https://docs.microsoft.com/en-us/fslogix/profile-container-configuration-reference
+fslogix_profilecontainer_enabled: true
+fslogix_profilecontainer_vhd_locations:
+  - '\\{{ groups["windows_fs"][0] }}\{{ winfs_shares[1].name }}'
+fslogix_profilecontainer_size_in_mbs: 2560
+fslogix_profilecontainer_profile_type: 0
+fslogix_profilecontainer_vhd_sector_size: 4096
+fslogix_profilecontainer_volume_type: 'vhdx'
+fslogix_profilecontainer_delete_local_profile_when_vhd_should_apply: true
+fslogix_profilecontainer_exclude_list:
+  - 'Administrators'
+  - '{{ domain_netbios_name }}{{ win_path_seperator }}{{ domain_admin_user_group }}'
+fslogix_profilecontainer_frxtray_enabled: true
+
+# FSLogix Office Container
+# https://docs.microsoft.com/en-us/fslogix/office-container-configuration-reference
+fslogix_officecontainer_enabled: true
+fslogix_officecontainer_size_in_mbs: 4096
+fslogix_officecontainer_vhd_access_mode: 0
+fslogix_officecontainer_vhd_locations:
+  - '\\{{ groups["windows_fs"][0] }}\{{ winfs_shares[0].name }}'
+fslogix_officecontainer_vhd_sector_size: 4096
+fslogix_officecontainer_volume_type: 'vhdx'
+fslogix_officecontainer_include_teams: 1
+fslogix_officecontainer_exclude_list:
+  - 'Administrators'
+  - '{{ domain_netbios_name }}{{ win_path_seperator }}{{ domain_admin_user_group }}'
+
+# Microsoft Office365
+office365_enabled: true
+
+# Microsoft Teams
+teams_enabled: true
+teams_is_wvd_environment: true
+teams_per_machine_install: true
+teams_no_autostart: true
+
+# Microsoft OneDrive
+onedrive_enabled: true
+onedrive_per_machine_install: true

@@ -1,0 +1,83 @@
+---
+- hosts: linux_dh
+  become: true
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+
+    - name: docker_container traefik - Update facts of traefik_tcp_routers_ssl_endpoints
+      setup:
+      delegate_to: '{{ item }}'
+      delegate_facts: yes
+      become_method: runas
+      become_user: '{{ domain_admin_user }}'
+      with_items: '{{ groups["windows_rdg"] }}'
+      when:
+        - groups["windows_rdg"] is defined
+        - hostvars[item]["ansible_ip_addresses"] is not defined
+      tags:
+        - docker_container_traefik
+        - docker_container_guac
+
+    - name: docker_container dc - Update facts of dc
+      setup:
+      delegate_to: '{{ item }}'
+      delegate_facts: yes
+      become_method: runas
+      become_user: '{{ domain_admin_user }}'
+      with_items: '{{ groups["dc"] }}'
+      when:
+        - groups["dc"] is defined
+        - hostvars[item]["ansible_hostname"] is not defined
+      tags: docker_container_guac
+
+    # traefik
+    - name: infra-dh-containers traefik_remove
+      import_tasks: tasks/remove_docker_container.yml
+      vars:
+        docker_container_names: ["{{ docker_container_traefik_name }}", "{{ docker_container_traefik_certdumper_name }}"]
+        docker_container_volume_dir: "{{ docker_container_traefik_volume_dir }}"
+      tags: [never, docker_container_traefik_remove, docker_container_all_remove]
+
+    - name: infra-dh-containers traefik
+      import_tasks: tasks/docker_container_traefik.yml
+      tags: docker_container_traefik
+
+    - name: infra-dh-containers traefik - Wait until cert for rdg is requested
+      wait_for:
+        path: "{{ docker_container_traefik_volume_dir }}/certs/{{ hostvars[groups['windows_rdg'][0]]['ansible_hostname'] }}.{{ public_hosting_domain }}/certificate.crt"
+        state: present
+        timeout: 120
+        sleep: 1
+        delay: 2
+      tags: docker_container_traefik
+
+    - name: infra-dh-containers traefik - Wait until cert for rdcb is requested
+      wait_for:
+        path: "{{ docker_container_traefik_volume_dir }}/certs/{{ groups['windows_rdcb'][0] }}.{{ public_hosting_domain }}/certificate.crt"
+        state: present
+        timeout: 120
+        sleep: 1
+        delay: 2
+      tags: docker_container_traefik
+      when: '"windows_rdcb" in groups'
+
+    # guac
+    - name: infra-dh-containers guac_remove
+      import_tasks: tasks/remove_docker_container.yml
+      vars:
+        docker_container_names: ["{{ docker_container_guac_name }}", "{{ docker_container_guac_d_name }}", "{{ docker_container_guac_db_name }}"]
+        docker_container_volume_dir: "{{ docker_container_guac_volume_dir }}"
+      tags: [never, docker_container_guac_remove, docker_container_all_remove]
+
+    - name: infra-dh-containers guac
+      import_tasks: tasks/docker_container_guac.yml
+      tags: [docker_container_guac]
+
+    # ssh key
+    # - name: ensure ssh public key
+    #   authorized_key:
+    #     user: "{{ ansible_user }}"
+    #     key: "{{ lookup('file', (windows_certs_dumper_ssh_key_priv + '.pub')) }}"
+    #     state: present

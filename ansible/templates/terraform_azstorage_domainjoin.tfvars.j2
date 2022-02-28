@@ -1,0 +1,15 @@
+# This template file for domain join info for
+# azure storage account.
+# this file is copied to the terraform directory
+
+azure_files_authentication = {
+    directory_type = "AD"
+    active_directory = {
+        domain_guid         = "{{ join_info_domain_guid }}"
+        domain_name         = "{{ join_info_domain_name }}"
+        domain_sid          = "{{ join_info_domain_sid }}"
+        forest_name         = "{{ join_info_forest_name }}"
+        netbios_domain_name = "{{ join_info_netbios_domain_name }}"
+        storage_sid         = "{{ join_info_storage_sid }}"
+      }
+  }

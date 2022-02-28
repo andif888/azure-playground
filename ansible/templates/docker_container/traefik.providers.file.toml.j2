@@ -1,0 +1,73 @@
+# http routing section
+[http]
+
+  [http.middlewares]
+    [http.middlewares.https_redirect_permanent]
+      [http.middlewares.https_redirect_permanent.redirectScheme]
+        scheme = "https"
+        permanent = true
+
+    [http.middlewares.hsts]
+      [http.middlewares.hsts.headers]
+        stsSeconds = 315360000
+        stsIncludeSubdomains = true
+        # stsPreload = true
+        forceSTSHeader = true
+        contenttypenosniff=true
+        browserXssFilter=true
+        framedeny=true
+
+    [http.middlewares.limit.buffering]
+      maxRequestBodyBytes = 107374182400
+      maxResponseBodyBytes = 107374182400
+
+[tcp]
+  [tcp.routers]
+    [tcp.routers.rdg]
+      entryPoints = ["https"]
+      rule = "HostSNI(`{{ hostvars[groups["windows_rdg"][0]]["ansible_hostname"] }}.{{ public_hosting_domain }}`, `rdg.{{ public_hosting_domain }}`)"
+      service = "rdg"
+      [tcp.routers.rdg.tls]
+        passthrough = true
+        certResolver = "le"
+
+{% if 'windows_rdcb' in groups %}
+    [tcp.routers.rdcb]
+      entryPoints = ["https"]
+      rule = "HostSNI(`{{ groups["windows_rdcb"][0] }}.{{ public_hosting_domain }}`, `rdcb.{{ public_hosting_domain }}`)"
+      service = "rdcb"
+      [tcp.routers.rdcb.tls]
+        passthrough = true
+        certResolver = "le"
+{% endif %}
+
+  [tcp.services]
+    [tcp.services.rdg]
+      [tcp.services.rdg.loadBalancer]
+        [[tcp.services.rdg.loadBalancer.servers]]
+          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}:443"
+
+{% if 'windows_rdcb' in groups %}
+    [tcp.services.rdcb]
+      [tcp.services.rdcb.loadBalancer]
+        [[tcp.services.rdcb.loadBalancer.servers]]
+          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}:443"
+{% endif %}
+
+[tls]
+
+  [tls.options]
+    [tls.options.default]
+      minVersion = "VersionTLS12"
+      cipherSuites = [
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+      ]
+      sniStrict = true
+    [tls.options.mintls13]
+      minVersion = "VersionTLS13"
+      sniStrict = true

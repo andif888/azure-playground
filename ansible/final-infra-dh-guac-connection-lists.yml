@@ -1,0 +1,115 @@
+---
+- hosts: linux_dh
+  become: true
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+
+# windows
+
+  - name: guac-connection - group windows - rdp
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: '{{ groups["dc"] | union(groups["windows_rdg"]) | union(groups["windows_fs"])  | union(groups["windows_sql"]) | unique }}'
+      guac_connection_port: 3389
+      guac_connection_protocol: rdp
+      guac_connection_sql_file_prefix: windows_rdp
+    tags:
+      - windows_rdp
+
+  - name: guac-connection - group windows - ssh
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: '{{ groups["dc"] | union(groups["windows_rdg"]) | union(groups["windows_fs"])  | union(groups["windows_sql"]) | unique }}'
+      guac_connection_port: 22
+      guac_connection_protocol: ssh
+      guac_connection_sql_file_prefix: windows_ssh
+    tags:
+      - windows_ssh
+
+# linux
+  - name: guac-connection - group linux - ssh
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: '{{ groups["linux_dh"] | difference([inventory_hostname]) }}'
+      guac_connection_port: 22
+      guac_connection_protocol: ssh
+      guac_connection_username: '{{ vault_global_admin_user }}'
+      guac_connection_password: '{{ vault_global_admin_password }}'
+      guac_connection_sql_file_prefix: linux_ssh
+    tags:
+      - linux_ssh
+
+# wg0
+  - name: guac-connection - group {{ inventory_hostname }} - ssh
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "['{{ inventory_hostname }}']"
+      guac_connection_port: 1122
+      guac_connection_protocol: ssh
+      guac_connection_username: '{{ vault_global_admin_user }}'
+      guac_connection_password: '{{ vault_global_admin_password }}'
+      guac_connection_sql_file_prefix: '{{ inventory_hostname }}_ssh'
+    tags:
+      - wg0_ssh
+
+# windows_rdcb
+  - name: guac-connection - group windows_rdcb - rdp
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "{{ groups['windows_rdcb'] }}"
+      guac_connection_port: 3389
+      guac_connection_protocol: rdp
+      guac_connection_sql_file_prefix: windows_rdcb_rdp
+      guac_connection_rdp_console: true
+    tags:
+      - windows_rdcb_rdp
+    when: '"windows_rdcb" in groups'
+
+  - name: guac-connection - group windows_rdcb - ssh
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "{{ groups['windows_rdcb'] }}"
+      guac_connection_port: 22
+      guac_connection_protocol: ssh
+      guac_connection_sql_file_prefix: windows_rdcb_ssh
+    tags:
+      - windows_rdcb_ssh
+    when: '"windows_rdcb" in groups'
+
+  - name: guac-connection - group windows_rdcb - rdp loadbalanced
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "['{{ groups['windows_rdcb'][0] }}']"
+      guac_connection_port: 3389
+      guac_connection_protocol: rdp
+      guac_connection_sql_file_prefix: windows_rdcb_rdp_lbc
+      guac_connection_rdp_load_balance_info: 'tsv://MS Terminal Services Plugin.1.{{ rds_session_collection_name }}'
+    tags:
+      - windows_rdcb_rdp
+    when: '"windows_rdcb" in groups'
+
+# windows_rdsh
+  - name: guac-connection - group windows_rdsh - rdp
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "{{ groups['windows_rdsh'] }}"
+      guac_connection_port: 3389
+      guac_connection_protocol: rdp
+      guac_connection_sql_file_prefix: windows_rdsh_rdp
+      guac_connection_rdp_console: true
+    tags:
+      - windows_rdsh_rdp
+    when: '"windows_rdsh" in groups'
+
+  - name: guac-connection - group windows_rdsh - ssh
+    include_tasks: tasks/docker_container_guac_connection_list.yml
+    vars:
+      guac_connection_names: "{{ groups['windows_rdsh'] }}"
+      guac_connection_port: 22
+      guac_connection_protocol: ssh
+      guac_connection_sql_file_prefix: windows_rdsh_ssh
+    tags:
+      - windows_rdsh_ssh
+    when: '"windows_rdsh" in groups'

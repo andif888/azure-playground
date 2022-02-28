@@ -1,0 +1,30 @@
+Import-Module RemoteDesktopServices
+
+$Password = ConvertTo-SecureString -String '{{ certdumper_password }}' -AsPlainText -Force
+
+# Import the certificate to the local machine certificate store
+    Write-Output "Import pfx certificate $pfxfile"
+    $pfxfile = Resolve-Path "{{ ansible_hostname }}.{{ public_hosting_domain }}.pfx"
+    $certRootStore = "LocalMachine"
+    $certStore = "My"
+    $rawData = [System.IO.File]::ReadAllBytes($pfxfile)
+    $pfx = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+    $pfx.Import($rawData, $Password, "Exportable,PersistKeySet,MachineKeySet")
+    $store = New-Object System.Security.Cryptography.X509Certificates.X509Store($certStore,$certRootStore)
+    $store.Open('ReadWrite')
+    $store.Add($pfx)
+    $store.Close()
+    $certThumbprint = $pfx.Thumbprint
+
+    Write-Output $certThumbprint
+
+
+$RDSCertPath = 'RDS:\GatewayServer\SSLCertificate\Thumbprint'
+
+Set-Item $RDSCertPath -Value $certThumbprint
+
+ Restart-Service -Name TSGateway -Force
+
+
+    # Finished
+    Write-Output "Finished"

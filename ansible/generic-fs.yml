@@ -1,0 +1,14 @@
+---
+- hosts: windows_fs
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - name: generic-fs - Windows Feature FS-FileServer
+      win_feature:
+        name: '{{ item.name }}'
+        state: present
+      loop:
+        - { name: 'FS-FileServer' }
+        - { name: 'FS-DFS-Replication' }

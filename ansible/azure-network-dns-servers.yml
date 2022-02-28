@@ -1,0 +1,44 @@
+---
+- hosts: localhost
+  vars_files:
+    - vars/generic.yml
+
+  pre_tasks:
+    - include_vars: "{{ item }}"
+      with_first_found:
+        - 'vars/{{ vault_global_generated_for_ansible_file_prefix }}02_network.yml'
+
+    - name: Update facts of dc
+      setup:
+      delegate_to: '{{ item }}'
+      delegate_facts: yes
+      become_method: runas
+      become_user: '{{ domain_admin_user }}'
+      with_items: '{{ groups["dc"] }}'
+      when:
+        - groups["dc"] is defined
+        - hostvars[item]["ansible_ip_addresses"] is not defined
+
+  tasks:
+    - name: Generate dnsservers.auto.tfvars into terraform directory
+      local_action:
+        module: template
+        src: './templates/terrarform_azure_network_dns_server.tfvars.j2'
+        dest: '{{ terraform_project_path }}/dnsservers.auto.tfvars'
+
+    - name: Run terraform apply
+      local_action:
+        module: community.general.terraform
+        project_path: '{{ terraform_project_path }}'
+        state: "{{ state | default('present') }}"
+        # force_init: true
+        backend_config:
+          resource_group_name: '{{ azure_bootstrap_resource_group_name }}'
+          storage_account_name: '{{ azure_bootstrap_storage_account_name }}'
+          container_name: '{{ azure_bootstrap_storage_account_container_name }}'
+          key: '{{ terraform_tfstate_file_name }}'
+        variables_files: '{{ terraform_variables_files }}'
+      register: result
+
+    - debug:
+        msg: '{{ result.stdout }}'

@@ -1,0 +1,38 @@
+name: destroy_msrds
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  TF_VAR_ssh_private_key_pem: ${{ secrets.TF_VAR_ssh_private_key_pem }}
+
+jobs:
+  build_job:
+    name: build_job
+    runs-on: ubuntu-latest
+
+    container:
+      image: andif888/docker-pataz:v0.9.0
+
+    steps:
+
+      - name: checkout_repo
+        uses: actions/checkout@v2
+
+      - name: show versions in container
+        run: |
+          ansible --version
+          packer --version
+          terraform --version
+          az --version
+
+      - name: destroy_msrds
+        id: destroy_msrds
+        run: |
+          echo -n ${{ secrets.envfile }} > .env && . ./.env
+          ./destroy_msrds.sh
+
+      - name: cleanup_ssh
+        if: always()
+        run: rm -rf ./.github/.ssh

@@ -1,0 +1,79 @@
+---
+- hosts: windows_sql
+  vars_files:
+    - vars/generic.yml
+  vars:
+    ansible_become_method: runas
+    ansible_become_user: '{{ domain_admin_user }}'
+    ansible_become_password: '{{ domain_admin_password }}'
+
+  tasks:
+    - name: Download SQL Server Developer Edition exists
+      ansible.windows.win_stat:
+        path: '{{ sql_server_dev_install_exe }}'
+      register: sql_server_install_exe_exist_result
+
+
+    - name: Download SQL Server Developer Edition
+      win_get_url:
+        url: '{{ sql_server_dev_download_url }}'
+        dest: '{{ sql_server_dev_install_exe }}'
+        force: no
+      when: sql_server_install_exe_exist_result.stat.exists == false
+
+    - name: ISO Download exists
+      ansible.windows.win_stat:
+        path: '{{ sql_server_iso_file_path }}'
+      register: sql_server_iso_exist_result
+
+    - name: Execute ISO Download
+      win_command: '{{ sql_server_dev_install_exe | basename }} /Action=Download /MediaPath={{ sql_server_dev_extract_dir }} /MediaType=ISO /VERBOSE /QUIET'
+      args:
+        chdir: '{{ sql_server_dev_extract_dir }}'
+      register: sql_exec_download_result
+      when: sql_server_iso_exist_result.stat.exists == false
+
+    - name: Mount SQL Server ISO
+      win_disk_image:
+        image_path: '{{ sql_server_iso_file_path }}'
+        state: present
+      register: disk_image_out
+
+    - name: Sleep for 2 seconds and continue with play
+      wait_for:
+        timeout: 2
+      delegate_to: localhost
+
+    - name: Copy ConfigurationFile.ini
+      win_template:
+        src: '{{ sql_server_install_configuration_template }}'
+        dest: '{{ sql_server_dev_extract_dir }}\ConfigurationFile.ini'
+
+    - name: Execute SQL Setup
+      win_command: '{{ disk_image_out.mount_paths[0] }}\setup.exe /CONFIGURATIONFILE="{{ sql_server_dev_extract_dir }}\ConfigurationFile.ini" /IACCEPTSQLSERVERLICENSETERMS /QUIET'
+      args:
+        chdir: '{{ disk_image_out.mount_paths[0] }}'
+        creates: '{{ sql_server_already_installed_path }}'
+      register: sql_setup_result
+      become: true
+
+    - debug:
+        var: sql_setup_result
+
+
+    - name: Umount SQL Server ISO
+      win_disk_image:
+        image_path: '{{ sql_server_iso_file_path }}'
+        state: absent
+
+
+    - name: generic-sql - allow firewall port 1433
+      win_firewall_rule:
+        name: MSSQLSERVER
+        localport: 1433
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: yes
+      tags: firewall

@@ -1,0 +1,38 @@
+---
+# https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/hh831348(v=ws.11)
+- hosts: windows_ca
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - name: generic-ca - Check if CertSvc exists
+      ansible.windows.win_service_info:
+        name: CertSvc
+      register: cert_svc_service_info_result
+
+    - name: generic-ca - Windows Feature Certificate Authority
+      win_feature:
+        name: '{{ item }}'
+        state: present
+      loop:
+        - ADCS-Cert-Authority
+
+    - name: generic-ca - Install Enterprise Certificate Authority
+      win_shell: |
+        Install-AdcsCertificationAuthority `
+        -CAType EnterpriseRootCa `
+        -CACommonName "{{ domain_netbios_name }}-RootCA" `
+        -CryptoProviderName "RSA#Microsoft Software Key Storage Provider" `
+        -KeyLength 2048 `
+        -HashAlgorithmName SHA256 `
+        -ValidityPeriod Years `
+        -ValidityPeriodUnits 20 `
+        -Confirm:$false
+      register: install_ca_result
+      when: cert_svc_service_info_result.exists == false
+
+    - debug:
+        var: install_ca_result
+      tags: [never, debug]
+      when: cert_svc_service_info_result.exists == false

@@ -1,0 +1,146 @@
+---
+- hosts: windows_rdsh
+
+  vars_files:
+    - vars/generic.yml
+
+  roles:
+    - { role: ansible-role-win-fslogix }
+
+  tasks:
+
+# FSLogix Profile Container
+
+    - name: infra-rdsh-fslogix - Profile Container - Enable FSLogix Profile Container
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: Enabled
+        data: '{{ fslogix_profilecontainer_enabled | bool | ternary(1, 0) }}'
+        type: dword
+        state: present
+
+    - name: infra-rdsh-fslogix - Profile Container - VHDLocations
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: VHDLocations
+        data: '{{ fslogix_profilecontainer_vhd_locations | list }}'
+        type: multistring
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - SizeInMBs
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: SizeInMBs
+        data: '{{ fslogix_profilecontainer_size_in_mbs }}'
+        type: dword
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - ProfileType
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: ProfileType
+        data: '{{ fslogix_profilecontainer_profile_type }}'
+        type: dword
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - VHDXSectorSize
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: VHDXSectorSize
+        data: '{{ fslogix_profilecontainer_vhd_sector_size }}'
+        type: dword
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - VolumeType
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: VolumeType
+        data: '{{ fslogix_profilecontainer_volume_type }}'
+        type: string
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - DeleteLocalProfileWhenVHDShouldApply
+      win_regedit:
+        path: HKLM:\Software\FSLogix\Profiles
+        name: DeleteLocalProfileWhenVHDShouldApply
+        data: '{{ fslogix_profilecontainer_delete_local_profile_when_vhd_should_apply | bool | ternary(1, 0) }}'
+        type: dword
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - Exclude Group
+      win_group_membership:
+        name: FSLogix Profile Exclude list
+        members: '{{ fslogix_profilecontainer_exclude_list }}'
+        state: "{{ fslogix_profilecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Profile Container - frxtray.exe in common startmenu startup
+      win_shortcut:
+        src: '%ProgramFiles%\FSLogix\Apps\frxtray.exe'
+        dest: '%ProgramData%\Microsoft\Windows\Start Menu\Programs\StartUp\FrxTray.lnk'
+        state: "{{ (fslogix_profilecontainer_enabled and fslogix_profilecontainer_frxtray_enabled) | bool | ternary('present', 'absent') }}"
+
+# FSLogix Office Container
+
+    - name: infra-rdsh-fslogix - Office Container - Enable FSLogix Office Container
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: Enabled
+        data: '{{ fslogix_officecontainer_enabled | bool | ternary(1, 0) }}'
+        type: dword
+        state: present
+
+    - name: infra-rdsh-fslogix - Office Container - SizeInMBs
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: SizeInMBs
+        data: '{{ fslogix_officecontainer_size_in_mbs }}'
+        type: dword
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Office Container - VHDAccessMode
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: VHDAccessMode
+        data: '{{ fslogix_officecontainer_vhd_access_mode }}'
+        type: dword
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Office Container - VHDLocations
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: VHDLocations
+        data: '{{ fslogix_officecontainer_vhd_locations | list }}'
+        type: multistring
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Office Container - VHDXSectorSize
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: VHDXSectorSize
+        data: '{{ fslogix_officecontainer_vhd_sector_size }}'
+        type: dword
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Office Container - VolumeType
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: VolumeType
+        data: '{{ fslogix_officecontainer_volume_type }}'
+        type: string
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+
+    - name: infra-rdsh-fslogix - Office Container - IncludeTeams
+      win_regedit:
+        path: HKLM:\Software\Policies\FSLogix\ODFC
+        name: IncludeTeams
+        data: '{{ fslogix_officecontainer_include_teams }}'
+        type: dword
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"
+      tags:
+        - fslogix_office_container_include_teams
+
+    - name: infra-rdsh-fslogix - Office Container - Exclude Group
+      win_group_membership:
+        name: FSLogix ODFC Exclude list
+        members: '{{ fslogix_officecontainer_exclude_list }}'
+        state: "{{ fslogix_officecontainer_enabled | bool | ternary('present', 'absent') }}"

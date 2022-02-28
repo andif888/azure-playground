@@ -1,0 +1,13 @@
+ssh-keyscan -t ecdsa {{ hostvars[groups["linux_dh"][0]]["ansible_hostname"] }}.{{ dns_domain_name }} > C:\Users\{{ ansible_user }}\.ssh\known_hosts
+ssh -p 1122 -o StrictHostKeyChecking=no -o UserKnownHostsFile=\\.\NUL -i {{ windows_certs_dumper_ssh_key_priv_file_name }} -t {{ ansible_user }}@{{ hostvars[groups["linux_dh"][0]]["ansible_hostname"] }}.{{ dns_domain_name }} "sudo cp {{ docker_container_traefik_volume_dir }}/letsencrypt/acme.json /tmp/acme.json"
+ssh -p 1122 -o StrictHostKeyChecking=no -o UserKnownHostsFile=\\.\NUL -i {{ windows_certs_dumper_ssh_key_priv_file_name }} -t {{ ansible_user }}@{{ hostvars[groups["linux_dh"][0]]["ansible_hostname"] }}.{{ dns_domain_name }} "sudo chmod 0644 /tmp/acme.json"
+scp -P 1122 -o StrictHostKeyChecking=no -o UserKnownHostsFile=\\.\NUL -i {{ windows_certs_dumper_ssh_key_priv_file_name }} {{ ansible_user }}@{{ hostvars[groups["linux_dh"][0]]["ansible_hostname"] }}.{{ dns_domain_name }}:/tmp/acme.json .
+ssh -p 1122 -o StrictHostKeyChecking=no -o UserKnownHostsFile=\\.\NUL -i {{ windows_certs_dumper_ssh_key_priv_file_name }} -t {{ ansible_user }}@{{ hostvars[groups["linux_dh"][0]]["ansible_hostname"] }}.{{ dns_domain_name }} "sudo rm -f /tmp/acme.json"
+traefik-certs-dumper.exe file --version v2
+
+if exist ".\dump\certs\rdg.{{ public_hosting_domain }}.crt" (
+    openssl pkcs12 -export -out {{ ansible_hostname }}.{{ public_hosting_domain }}.pfx  -in ".\dump\certs\rdg.{{ public_hosting_domain }}.crt" -inkey ".\dump\private\rdg.{{ public_hosting_domain }}.key" -passout pass:{{ certdumper_password }}
+) else (
+    openssl pkcs12 -export -out {{ ansible_hostname }}.{{ public_hosting_domain }}.pfx  -in ".\dump\certs\{{ ansible_hostname }}.{{ public_hosting_domain }}.crt" -inkey ".\dump\private\{{ ansible_hostname }}.{{ public_hosting_domain }}.key" -passout pass:{{ certdumper_password }}
+)
+Powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\set_certificate.ps1

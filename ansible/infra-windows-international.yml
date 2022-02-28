@@ -1,0 +1,16 @@
+---
+- hosts: windows
+
+  vars_files:
+    - vars/generic.yml
+
+  vars:
+    ansible_user: '{{ domain_admin_user }}'
+
+  roles:
+    - { role: ansible-role-win-language }
+
+  tasks:
+    - name: Set timezone
+      win_timezone:
+        timezone: '{{ win_timezone }}'

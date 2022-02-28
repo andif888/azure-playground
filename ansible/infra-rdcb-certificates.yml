@@ -1,0 +1,19 @@
+---
+- hosts: windows_rdcb
+
+  vars_files:
+    - vars/generic.yml
+
+  vars:
+    # runas
+    ansible_become_method: runas
+    ansible_become_user: '{{ domain_admin_user }}'
+    ansible_become_password: '{{ domain_admin_password }}'
+
+  collections:
+    - azure.azcollection
+
+  tasks:
+
+    - name: infra-rdcb-certificates - Windows CertDumper
+      import_tasks: tasks/windows_certdumper.yml

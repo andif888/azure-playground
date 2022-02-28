@@ -1,0 +1,111 @@
+---
+- hosts: dc
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+
+    - name: Ensure the required NuGet package provider version is installed
+      ansible.windows.win_shell: Find-PackageProvider -Name Nuget -ForceBootstrap -IncludeDependencies -Force
+
+    - name: Install PowerShellGet
+      win_shell: |
+        Install-Module -Name PowerShellGet -Force
+      tags: powershellget
+
+    - name: Update PowerShellGet
+      win_shell: |
+        Update-Module -Name PowerShellGet
+      tags: powershellget
+
+    - name: Add a PowerShell modules
+      community.windows.win_psmodule:
+        name: "{{ item }}"
+        repository: "PSGallery"
+        state: present
+      loop:
+        - AZ.Storage
+        - AZ.Accounts
+        - AzureAD
+
+    - name: infra-dc - fix and move inital user in AD to {{ domain_user_ou_path_it }}
+      win_shell: |
+        get-aduser {{ domain_admin_user_short }} | Move-ADObject -TargetPath '{{ domain_user_ou_path_it }}'
+        get-aduser {{ domain_admin_user_short }} | Set-ADUser -UserPrincipalName "{{ domain_admin_user_short }}@{{ dns_domain_name }}"
+      tags:
+        - move_initial_ad_user_to_ou
+
+    - name: infra-dc - ensure user passwords
+      community.windows.win_domain_user:
+        name: '{{ item.name }}'
+        password: '{{ domain_user_password }}'
+        password_never_expires: yes
+        update_password: always
+        state: present
+      with_items:
+        - { name: Administrator}
+
+    - name: infra-dc - Add groups
+      community.windows.win_domain_group:
+        name: '{{ item.name }}'
+        scope: global
+        category: security
+        ignore_protection: yes
+        organizational_unit: '{{ domain_groups_ou_path }}'
+        state: present
+      loop: '{{ domain_groups }}'
+
+    - name: infra-dc - Add users
+      community.windows.win_domain_user:
+        name: '{{ item.name }}'
+        groups: '{{ item.groups }}'
+        group_action: add
+        password: '{{ domain_user_password }}'
+        password_never_expires: yes
+        update_password: always
+        upn: '{{ item.name }}@{{ dns_domain_name }}'
+        path: '{{ item.ou_path }}'
+        state: present
+      loop: '{{ domain_users }}'
+
+    - name: infra-dc - Domain-Admin Members
+      community.windows.win_domain_group_membership:
+        name: '{{ item.name }}'
+        members:
+          - '{{ domain_users[0].name }}'
+          - '{{ domain_admin_user_short }}'
+          - Administrator
+        state: present
+      with_items:
+          - { name: '{{ domain_admin_user_group }}' }
+
+    - name: infra-dc - Update facts of linux_dh group
+      setup:
+      delegate_to: '{{ item }}'
+      delegate_facts: yes
+      with_items: '{{ groups["linux_dh"] }}'
+      when: hostvars[item]["ansible_default_ipv4"]["address"] is not defined
+      tags:
+        - dnsrecord
+
+    - name: infra-dc - DNS A Records
+      win_dns_record:
+        name: '{{ hostvars[item]["ansible_hostname"] }}'
+        type: "A"
+        value: '{{ hostvars[item]["ansible_default_ipv4"]["address"] }}'
+        zone: '{{ dns_domain_name }}'
+      with_items: '{{ groups["linux_dh"] }}'
+      tags:
+        - dnsrecord
+
+    - name: infra-dc - DNS CNAME Records
+      win_dns_record:
+        name: '{{ item.name }}'
+        type: "CNAME"
+        value: '{{ item.value }}'
+        zone: '{{ dns_domain_name }}'
+      with_items:
+        - { name: 'rdg', value: '{{ groups["windows_rdg"][0] }}.{{ dns_domain_name }}' }
+        - { name: 'guac', value: '{{ groups["linux_dh"][0] }}.{{ dns_domain_name }}' }
+      tags:
+        - dnsrecord

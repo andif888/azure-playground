@@ -1,0 +1,108 @@
+---
+- hosts: windows_fs
+
+  vars_files:
+    - vars/generic.yml
+
+  tasks:
+    - name: infra-fs - Get disk facts
+      win_disk_facts:
+
+    - name: infra-fs - Initialize disks
+      win_shell: |
+        Get-Disk | Where partitionstyle -eq ‘raw’ | Initialize-Disk -PartitionStyle GPT -PassThru
+      when: (not ansible_facts.disks[1].partition_style == "GPT") or
+            (not ansible_facts.disks[2].partition_style == "GPT") or
+            (not ansible_facts.disks[3].partition_style == "GPT")
+
+    # Re-Gather win_diskfacts to get updated partition information
+    - name: infra-fs - Re-Gather win_diskfacts to get updated partition information
+      win_disk_facts:
+
+
+    # BEGIN data disk Hack
+
+    # - name: debug disk_result.stdout
+    #   debug:
+    #     var: ansible_facts.disks | selectattr("system_disk", "equalto", False) | selectattr("partition_style", "equalto", "GPT") | first
+
+    - name: set data disk_first facts
+      set_fact:
+        disk_first: '{{ ansible_facts.disks | selectattr("system_disk", "equalto", False) | selectattr("partition_style", "equalto", "GPT") | first }}'
+
+
+    - name: debug data disk_first number
+      debug:
+        var: disk_first['number']
+
+    - name: set data disk_first number facts
+      set_fact:
+        disk_first_number: "{{ disk_first['number'] }}"
+
+    - name: set data disk_first number facts (default = 1)
+      set_fact:
+        disk_first_number: 1
+      when: (disk_first_number|int) < 1
+
+    - name: debug first data disk number finally
+      debug:
+        var: disk_first_number
+    # BEGIN data disk Hack
+
+
+
+
+
+    - name: infra-fs - Partition disks 1 (shares)
+      win_partition:
+        disk_number: '{{ disk_first_number }}'
+        drive_letter: '{{ winfs_data_disk_drive_letter }}'
+        partition_size: '{{ ((0.9 * ((ansible_facts.disks | selectattr("number", "equalto", ((disk_first_number|int) + 0)) | map(attribute="size") | first)|int)) | int) }}B'
+      when: (ansible_facts.disks | selectattr("number", "equalto", (disk_first_number|int)) | map(attribute="partition_count") | first) == 1
+
+
+
+    # Re-Gather win_diskfacts to get updated partition information
+    - name: infra-fs - Re-Gather win_diskfacts to get updated partition information
+      win_disk_facts:
+
+    - name: infra-fs - format with ReFS
+      win_format:
+        drive_letter: '{{ winfs_data_disk_drive_letter }}'
+        file_system: refs
+        new_label: '{{ winfs_data_disk_label }}'
+        force: no
+        full: no
+      when: not (ansible_facts.disks | selectattr("number", "equalto", (disk_first_number|int)) | first ).partitions[1].volumes[0].type == "ReFS"
+
+
+    # - name: infra-fs - Create FSLogix Profile Directory
+    #   win_file:
+    #     path: '{{ fslogix_share_local_path }}'
+    #     state: directory
+    #
+    # - name: infra-fs - Create FSLogix Profile Share
+    #   win_share:
+    #     name: '{{ fslogix_share_name }}'
+    #     description: Contains FSLogix Profile VHDs
+    #     path: '{{ fslogix_share_local_path }}'
+    #     list: yes
+    #     full: '{{ fslogix_everyone_group }}'
+
+
+
+    - name: infra-fs - Create data Directories
+      win_file:
+        path: '{{ item.path }}'
+        state: directory
+      with_items: '{{ winfs_shares }}'
+
+
+    - name: infra-fs - Create data Shares
+      win_share:
+        name: '{{ item.name }}'
+        description: '{{ item.description }}'
+        path: '{{ item.path }}'
+        list: yes
+        full: '{{ win_everyone_username }}'
+      with_items: '{{ winfs_shares }}'

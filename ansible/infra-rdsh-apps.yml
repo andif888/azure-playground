@@ -1,0 +1,63 @@
+---
+- hosts: windows_rdsh
+
+  vars_files:
+    - vars/generic.yml
+
+  roles:
+    - role: ansible-role-win-office365
+      when: office365_enabled
+
+    - role: ansible-role-win-teams
+      when: teams_enabled
+
+    - role: ansible-role-win-onedrive
+      when: onedrive_enabled
+
+  tasks:
+    - name: infra-rdsh-apps - install Chocolatey            # https://github.com/ansible/ansible/issues/53860
+      win_chocolatey:
+        name: chocolatey
+        state: present
+      ignore_errors: yes                      # it can happen that we are rate limited by choocolatey. We don't want ro fail the whole playbook.
+
+    - name: infra-rdsh-apps - disable enhanced exit codes   # https://github.com/ansible/ansible/issues/53860
+      win_chocolatey_feature:
+        name: useEnhancedExitCodes
+        state: disabled
+      ignore_errors: yes                      # it can happen that we are rate limited by choocolatey. We don't want ro fail the whole playbook.
+
+    - name: infra-rdsh-apps - Install packages with chocolatey
+      win_chocolatey:
+        name: '{{ item }}'
+        state: present
+      loop: '{{ windows_chocolatey_apps }}'
+      ignore_errors: yes                      # it can happen that we are rate limited by choocolatey. We don't want ro fail the whole playbook.
+
+    - name: infra-rdsh-apps - Desktop Shortcuts
+      win_shortcut:
+        src: '{{ item.src}}'
+        dest: '{{ item.dest }}'
+        arguments: '{{ item.arguments | default(omit) }}'
+        icon: '{{ item.icon | default(omit) }}'
+      loop: '{{ windows_desktop_shortcuts }}'
+      when:
+        - windows_desktop_shortcuts is defined
+        - windows_desktop_shortcuts | length > 0
+      tags: windows_desktop_shortcuts
+
+    - name: infra-rdsh-apps - Create Printers
+      win_shell: |
+        $printerDriver = Get-PrinterDriver -Name "{{ item.driver }}" -ErrorAction SilentlyContinue
+        if (-Not $printerDriver) {
+          Add-PrinterDriver -Name "{{ item.driver }}"
+        }
+        $printer = Get-Printer -Name "{{ item.name }}" -ErrorAction SilentlyContinue
+        if (-Not $printer) {
+          Add-Printer -Name "{{ item.name }}" -DriverName "{{ item.driver }}" -PortName "{{ item.port }}"
+        }
+      loop: '{{ windows_printers }}'
+      when:
+        - windows_printers is defined
+        - windows_printers | length > 0
+      tags: windows_printers
