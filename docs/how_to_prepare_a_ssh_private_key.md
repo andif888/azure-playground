@@ -1,7 +1,10 @@
-# How to prepare a SSH Private Key
+# How to prepare a SSH Private Key with empty password
 
 You need a private key file.  
 This is used for OpenSSH inside the VMs.
+Please generate a **password-less** SSH-Key.
+
+If your are prompted to enter a password, simple hit enter key on our keyboard to use an **empty password**.
 
 Example command to generate private key on Linux:
 
