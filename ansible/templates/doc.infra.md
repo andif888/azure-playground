@@ -36,8 +36,8 @@ Hosting Domain: `{{ public_hosting_domain }}`
 ### Additional Features
 
 - {% if fileshare_storage_account_shares is defined %}✔{% else %}✖{% endif %} Azure Fileshares
-- {% if ('windows_rdcb' in groups and fslogix_profilecontainer_enabled) %}✔{% else %}✖{% endif %} FSLogix Profile Container
-- {% if ('windows_rdcb' in groups and fslogix_officecontainer_enabled) %}✔{% else %}✖{% endif %} FSLogix Office Container
+- {% if (fslogix_profilecontainer_enabled) %}✔{% else %}✖{% endif %} FSLogix Profile Container
+- {% if (fslogix_officecontainer_enabled) %}✔{% else %}✖{% endif %} FSLogix Office Container
 
 {% if (doc_sensitive | default(false)) %}
 ### SSH Host Config File
