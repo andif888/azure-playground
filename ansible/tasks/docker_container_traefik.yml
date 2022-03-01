@@ -78,27 +78,6 @@
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - "{{ docker_container_traefik_volume_dir }}/config:/etc/traefik"
       - "{{ docker_container_traefik_volume_dir }}/letsencrypt:/letsencrypt"
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.api.rule: "{{ docker_container_traefik_traefik_rule }}"
-      traefik.http.routers.api.entrypoints: http
-      traefik.http.routers.api.middlewares: https_redirect_permanent@file
-      # HTTPS
-      traefik.http.routers.api_ssl.rule: "{{ docker_container_traefik_traefik_rule }}"
-      traefik.http.routers.api_ssl.entrypoints: https
-      traefik.http.routers.api_ssl.service: api@internal
-      traefik.http.routers.api_ssl.middlewares: traefik_auth          # traefik_headers,traefik_auth
-      traefik.http.routers.api_ssl.tls: "true"
-      traefik.http.routers.api_ssl.tls.certResolver: le
-      traefik.http.routers.api_ssl.tls.options: default
-      #Auth Middleware
-      # traefik.http.middlewares.traefik_headers.headers.stsincludesubdomains: "true"
-      # traefik.http.middlewares.traefik_headers.headers.stsseconds: "315360000"
-      # traefik.http.middlewares.traefik_headers.headers.forcestsheader: "true"
-      # traefik.http.middlewares.traefik_headers.headers.contenttypenosniff: "true"
-      # traefik.http.middlewares.traefik_headers.headers.browserXssFilter: "true"
-      # traefik.http.middlewares.traefik_headers.headers.framedeny: "true"
-      traefik.http.middlewares.traefik_auth.basicauth.users: admin:$$apr1$$DLQML9aa$$/SiENb8q9GHbbSBcJgMsW/  # ensure to escape every $ with $$
     networks_cli_compatible: yes
     network_mode: "{{ docker_container_traefik_network_name }}"
     purge_networks: yes
