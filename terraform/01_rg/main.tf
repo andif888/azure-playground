@@ -10,14 +10,6 @@ resource "azurerm_resource_group" "rg" {
   )
 }
 
-# 1. We check in the first place if private key file, which is specified in var.ssh_private_key_file, does exists.
-#   If yes we use it and store it in azure  vault
-#   otherwise 2.
-# 2. We ckeck if there is a private key in PEM format in var.ssh_private_key_pem.
-#   If yes we use it and store it in azure vault
-#   otherwise 3.
-# 3. We generate a private key on the fly and store it in azure vault
-
 # Read private key from local file
 data "local_file" "private_key_pem" {
   count = fileexists(var.ssh_private_key_file) ? 1 : 0
