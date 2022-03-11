@@ -2,14 +2,14 @@
 
 You need a private key file.  
 This is used for OpenSSH inside the VMs.
-Please generate a **password-less** SSH-Key.
+Please generate a **password-less** SSH-Key im PEM format.
 
 If your are prompted to enter a password, simple hit enter key on our keyboard to use an **empty password**.
 
 Example command to generate private key on Linux:
 
 ```bash
-ssh-keygen -f ~/.ssh/playground_id_rsa -t rsa -b 2048 -C "azure-plyg-demo"
+ssh-keygen -f ~/.ssh/playground_id_rsa -t rsa -m PEM -b 2048 -C "azure-plyg-demo"
 ```
 
 Example command to generate private key on Windows:
@@ -17,7 +17,7 @@ Example command to generate private key on Windows:
 ```cmd
 cd %USERPROFILE%
 mkdir .ssh
-ssh-keygen -f .ssh/playground_id_rsa -t rsa -b 2048 -C "azure-plyg-demo"
+ssh-keygen -f .ssh/playground_id_rsa -t rsa -m PEM -b 2048 -C "azure-plyg-demo"
 ```
 
 Make sure your private key does not exceed 2048 bytes (-b 2048).   
