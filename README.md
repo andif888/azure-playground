@@ -48,8 +48,8 @@ Scaling it to powerful VMs with managed premium SSD or ephemeral disk for some g
    This is used to make the environment your own. This enables you to access your environment using your own Domain Name. This can be any exisiting one. We only need to create two DNS CNAME Records, which acts like a subdomain. So no worry, we are not going to fuck up anything at your base domain. To understand why we need a **reverse proxy dns hostname** and a **public hosting domain** defined and how you choose the correct values, read the following:    
    Checkout: [How to prepare your public Domain Name with DNS CNAME records](./docs/how_to_prepare_your_public_domain_name_with_dns_cname_records.md)   
 
-5. You need a **SSH Private Key**   
-   All VMs are automatically configured with OpenSSH. Ansible is used as configuration management tool and it connects to your VMs using SSH tunneling which requires a SSH key.   
+5. You need a **SSH Private Key** in PEM format   
+   All VMs are automatically configured with OpenSSH. Ansible is used as configuration management tool and it connects to your VMs using SSH tunneling which requires a SSH key in PEM format.   
    Checkout: [How to prepare a SSH Private Key](./docs/how_to_prepare_a_ssh_private_key.md)
 
 ## How to use the repo
