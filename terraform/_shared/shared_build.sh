@@ -10,7 +10,7 @@ shared_vars_file=../../global.tfvars
 
 echo "key: $script_dir_name"
 
-terraform init \
+terraform init -upgrade \
 -backend-config="resource_group_name=${TF_VAR_azure_bootstrap_resource_group_name}" \
 -backend-config="storage_account_name=${TF_VAR_azure_bootstrap_storage_account_name}" \
 -backend-config="container_name=${TF_VAR_azure_bootstrap_storage_account_container_name}" \

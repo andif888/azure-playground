@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: andif888/docker-pataz:v0.9.0
+      image: andif888/docker-pataz:v0.9.1
 
     steps:
 

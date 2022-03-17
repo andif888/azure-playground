@@ -7,4 +7,10 @@ provider "azurerm" {
 terraform {
   backend "azurerm" {
   }
+  required_providers {
+    local = {
+      source = "hashicorp/local"
+      version = ">= 2.2.0"
+    }
+  }
 }

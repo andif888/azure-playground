@@ -31,9 +31,9 @@ data "tls_public_key" "key" {
 }
 
 # Write private key to disk
-resource "local_file" "private_key_pem" {
+resource "local_sensitive_file" "private_key_pem" {
   #sensitive_content = length(var.ssh_private_key_pem) > 0 ? var.ssh_private_key_pem : file(pathexpand(var.ssh_private_key_file))
-  sensitive_content = length(var.ssh_private_key_pem) > 0 ? var.ssh_private_key_pem : file(var.ssh_private_key_file)
+  content = length(var.ssh_private_key_pem) > 0 ? var.ssh_private_key_pem : file(var.ssh_private_key_file)
   #filename          = pathexpand(var.ssh_private_key_file)
   filename        = var.ssh_private_key_internal_terraform
   file_permission = "0600"
