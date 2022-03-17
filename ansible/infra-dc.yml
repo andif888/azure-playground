@@ -67,6 +67,7 @@
         path: '{{ item.ou_path }}'
         state: present
       loop: '{{ domain_users }}'
+      ignore_errors: true
 
     - name: infra-dc - Domain-Admin Members
       community.windows.win_domain_group_membership:
