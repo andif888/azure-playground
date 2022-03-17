@@ -116,6 +116,10 @@ cd $build_path_ansible \
 && ansible-playbook -i inventory infra-sqldev.yml &
 thread15=$!
 
+echo "waiting for thread11 (infra-dh-containers)..."
+wait $thread11
+echo "thread11 (infra-dh-containers) exited with $?"
+
 echo "waiting for thread14 (generic-rdg)..."
 wait $thread14
 echo "thread14 (generic-rdg) exited with $?"
