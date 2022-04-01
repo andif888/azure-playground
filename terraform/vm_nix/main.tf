@@ -64,7 +64,7 @@ resource "local_file" "AnsibleInventory" {
       hostnames          = module.linux_vms.vm_hostnames,
       ansible_hosts      = module.linux_vms.windows_vm_private_ip_addresses,
       ansible_group      = substr(basename(path.cwd), -4, -1) # dbfs
-      is_windows_image   = true
+      is_windows_image   = false
       ansible_host_vars  = ""
       ansible_hostgroups = []
     }
