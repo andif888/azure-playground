@@ -63,7 +63,7 @@ module "azure_vms" {
   public_ip_dns                 = var.reversproxy_dns_hostname
   public_ip_dns_no_index        = true
   # allocation_method                 = "Dynamic"
-  nsg_allowed_ports = ["tcp_22", "tcp_80", "tcp_443", "tcp_1122", "udp_51827", "icmp_*"]
+  nsg_allowed_ports = ["Tcp_22", "Tcp_80", "Tcp_443", "Tcp_1122", "Udp_51827", "Icmp_*"]
 
   public_key_openssh              = file("${var.ssh_private_key_internal_terraform}.pub")
   enable_ssh_key                  = true

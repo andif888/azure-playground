@@ -45,7 +45,7 @@ module "window_vms" {
   # public_ip                     = true
   # public_ip_dns                 = "azplyg-dc"
   # public_ip_allocation_method = "Dynamic"
-  # nsg_allowed_ports = ["tcp_22", "tcp_3389"]
+  # nsg_allowed_ports = ["Tcp_22", "Tcp_3389"]
   # nsg_source_address_prefixes = ["0.0.0.0/0"]
 
   # Optional variables
