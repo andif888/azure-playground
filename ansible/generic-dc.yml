@@ -13,7 +13,7 @@
       win_regedit:
         path: HKLM:\SYSTEM\CurrentControlSet\Services\DNS\Parameters
         name: ListenAddresses
-        data: '[''{{ ansible_ip_addresses | ansible.netcommon.ipv4 | first }}'']'
+        data: '[''{{ ansible_ip_addresses | ansible.utils.ipv4 | first }}'']'
         type: multistring
       notify: restart DNS
 
