@@ -148,11 +148,11 @@ docker_container_volume_base_dir: /srv/docker_data
 docker_container_traefik_name: traefik
 docker_container_traefik_image: "traefik:v2.6"
 docker_container_traefik_network_name: "{{ docker_container_traefik_name }}_proxy_net"
-docker_container_traefik_network_subnet: "{{ docker_host_subnet_base | ansible.netcommon.ipsubnet(24, 7) }}"
-docker_container_traefik_network_gateway: "{{ docker_container_traefik_network_subnet | ansible.netcommon.ipaddr('next_usable') }}"
+docker_container_traefik_network_subnet: "{{ docker_host_subnet_base | ansible.utils.ipsubnet(24, 7) }}"
+docker_container_traefik_network_gateway: "{{ docker_container_traefik_network_subnet | ansible.utils.ipaddr('next_usable') }}"
 docker_container_traefik_le_acme_email: "postmaster@{{ public_hosting_domain }}"
 docker_container_traefik_volume_dir: "{{ docker_container_volume_base_dir }}/{{ docker_container_traefik_name }}"
-docker_container_traefik_entrypoints_trustedips: "127.0.0.1/32, {{ '/'.join((ansible_default_ipv4.network, ansible_default_ipv4.netmask))  | ansible.netcommon.ipaddr('net') }}"
+docker_container_traefik_entrypoints_trustedips: "127.0.0.1/32, {{ '/'.join((ansible_default_ipv4.network, ansible_default_ipv4.netmask))  | ansible.utils.ipaddr('net') }}"
 docker_container_traefik_traefik_rule: "Host(`traefik.{{ public_hosting_domain }}`)"
 
 docker_container_traefik_certdumper_name: certdumper
