@@ -20,7 +20,7 @@ domain_admin_user: "{{ vault_global_admin_user }}@{{ dns_domain_name }}"
 domain_admin_password: "{{ vault_global_admin_password }}"
 domain_admin_user_short: "{{ vault_global_admin_user }}"
 # use for domain join, client need to lookup domain controllers
-dns_client_dns_server_ip: '{{ hostvars[groups["dc"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}'
+dns_client_dns_server_ip: '{{ hostvars[groups["dc"][0]]["ansible_ip_addresses"] | ansible.utils.ipv4 | first }}'
 # AD safe mode password for DC
 safe_mode_password: '{{ domain_admin_password }}_safemode'
 

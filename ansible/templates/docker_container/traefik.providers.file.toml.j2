@@ -45,13 +45,13 @@
     [tcp.services.rdg]
       [tcp.services.rdg.loadBalancer]
         [[tcp.services.rdg.loadBalancer.servers]]
-          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}:443"
+          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.utils.ipv4 | first }}:443"
 
 {% if 'windows_rdcb' in groups %}
     [tcp.services.rdcb]
       [tcp.services.rdcb.loadBalancer]
         [[tcp.services.rdcb.loadBalancer.servers]]
-          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.netcommon.ipv4 | first }}:443"
+          address = "{{ hostvars[groups["windows_rdg"][0]]["ansible_ip_addresses"] | ansible.utils.ipv4 | first }}:443"
 {% endif %}
 
 [tls]
