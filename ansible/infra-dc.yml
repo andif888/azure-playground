@@ -59,7 +59,7 @@
       community.windows.win_domain_user:
         name: '{{ item.name }}'
         groups: '{{ item.groups }}'
-        group_action: add
+        groups_action: add
         password: '{{ domain_user_password }}'
         password_never_expires: yes
         update_password: always
